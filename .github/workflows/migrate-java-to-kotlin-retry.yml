@@ -1,0 +1,156 @@
+name: One-time HCF Dev Java to Kotlin conversion retry
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/migrate-java-to-kotlin-retry.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  convert-and-verify:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Set up Java 8 for J2K
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
+      - name: Set up Gradle 5.6.4
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '5.6.4'
+
+      - name: Apply Java-only runtime patches permanently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply-onboarding-account.py \
+            'source code/src/com/harleytg/forum/HcfForum.java' \
+            'source code/src/com/harleytg/forum/HcfCore.java'
+          python3 .github/scripts/apply-onboarding-live-session.py \
+            'source code/src/com/harleytg/forum/HcfForum.java'
+          grep -Fq 'HCF_ONBOARDING_FORUM_ACCOUNT_V1' 'source code/src/com/harleytg/forum/HcfForum.java'
+          grep -Fq 'HCF_ONBOARDING_ACCOUNT_FLOW_GUARD_V1' 'source code/src/com/harleytg/forum/HcfCore.java'
+          grep -Fq 'HCF_SETUP_LIVE_SESSION_PROBE_V1' 'source code/src/com/harleytg/forum/HcfForum.java'
+
+      - name: Convert all remaining Java runtime sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          ln -s "$GITHUB_WORKSPACE/source code/src/com/harleytg/forum" "$RUNNER_TEMP/hcf-runtime-src"
+          gradle -p .github/j2k --no-daemon run --args="$RUNNER_TEMP/hcf-runtime-src"
+          if find 'source code/src/com/harleytg/forum' -type f -name '*.java' -print -quit | grep -q .; then
+            echo "Java runtime source remains after conversion" >&2
+            find 'source code/src/com/harleytg/forum' -type f -name '*.java' -print >&2
+            exit 1
+          fi
+          test -f 'source code/src/com/harleytg/forum/HcfCore.kt'
+          test -f 'source code/src/com/harleytg/forum/HcfForum.kt'
+          test -f 'source code/src/com/harleytg/forum/HcfNotifications.kt'
+          test -f 'source code/src/com/harleytg/forum/HcfPlatform.kt'
+          test -f 'source code/src/com/harleytg/forum/HcfUI.kt'
+          test -f 'source code/src/com/harleytg/forum/HcfUpdates.kt'
+
+      - name: Set up Java 17 for Android validation
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 and Kotlin 2.4.20
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          KOTLIN_VERSION=2.4.20
+          KOTLIN_ROOT="$RUNNER_TEMP/kotlin"
+          mkdir -p "$KOTLIN_ROOT"
+          curl --fail --location --retry 3 --silent --show-error \
+            "https://github.com/JetBrains/kotlin/releases/download/v$KOTLIN_VERSION/kotlin-compiler-$KOTLIN_VERSION.zip" \
+            -o "$RUNNER_TEMP/kotlin-compiler.zip"
+          unzip -q "$RUNNER_TEMP/kotlin-compiler.zip" -d "$KOTLIN_ROOT"
+          test -x "$KOTLIN_ROOT/kotlinc/bin/kotlinc"
+          echo "KOTLIN_HOME=$KOTLIN_ROOT/kotlinc" >> "$GITHUB_ENV"
+
+      - name: Compile converted Kotlin runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/source code"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          WORK="$RUNNER_TEMP/hcf-j2k-compile"
+          ZXING_VERSION=3.5.3
+          ZXING_JAR="$WORK/zxing-core-$ZXING_VERSION.jar"
+          mkdir -p "$WORK/gen" "$WORK/classes" "$WORK/dex" "$WORK/secret-src/com/harleytg/forum"
+
+          curl --fail --location --retry 3 --silent --show-error \
+            "https://repo1.maven.org/maven2/com/google/zxing/core/$ZXING_VERSION/core-$ZXING_VERSION.jar" \
+            -o "$ZXING_JAR"
+          test -s "$ZXING_JAR"
+
+          "$BT/aapt" package -f -m \
+            -J "$WORK/gen" \
+            -M "$ROOT/AndroidManifest.xml" \
+            -S "$ROOT/res" \
+            -A "$ROOT/assets" \
+            -I "$ANDROID_JAR" \
+            -F "$WORK/resources.apk"
+
+          cat > "$WORK/secret-src/com/harleytg/forum/HcfDiscordSecret.java" <<'EOF'
+          package com.harleytg.forum.dev;
+          public final class HcfDiscordSecret {
+              private HcfDiscordSecret() {}
+              public static String decrypt() { return ""; }
+          }
+          EOF
+
+          mapfile -t JAVA_FILES < <(find "$WORK/gen" "$WORK/secret-src" -name '*.java' -print)
+          mapfile -t KOTLIN_FILES < <(find "$ROOT/src" -name '*.kt' -print)
+          KOTLIN_STDLIB="$KOTLIN_HOME/lib/kotlin-stdlib.jar"
+
+          "$KOTLIN_HOME/bin/kotlinc" \
+            -jvm-target 1.8 \
+            -classpath "$ANDROID_JAR:$ZXING_JAR" \
+            -d "$WORK/classes" \
+            "${KOTLIN_FILES[@]}" "${JAVA_FILES[@]}"
+
+          javac --release 8 \
+            -classpath "$ANDROID_JAR:$ZXING_JAR:$WORK/classes:$KOTLIN_STDLIB" \
+            -d "$WORK/classes" "${JAVA_FILES[@]}"
+
+          mapfile -t CLASS_FILES < <(find "$WORK/classes" -name '*.class' -print)
+          "$BT/d8" --lib "$ANDROID_JAR" --min-api 26 --release --output "$WORK/dex" \
+            "$ZXING_JAR" "$KOTLIN_STDLIB" "${CLASS_FILES[@]}"
+
+          strings "$WORK/dex/classes.dex" > "$WORK/dex-strings.txt"
+          grep -Fq 'HCF_KOTLIN_BUILD_V1' "$WORK/dex-strings.txt"
+          grep -Fq 'HcfDiscordSecret' "$WORK/dex-strings.txt"
+          grep -Fq 'setup_forum_identity_probe' "$WORK/dex-strings.txt"
+
+      - name: Commit verified Kotlin conversion
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/j2k
+          rm -f .github/workflows/migrate-java-to-kotlin.yml .github/workflows/migrate-java-to-kotlin-retry.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status --short
+          git commit -m "refactor(dev): complete runtime Java to Kotlin conversion"
+          git push origin HEAD:dev
