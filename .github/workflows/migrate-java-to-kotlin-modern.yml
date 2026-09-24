@@ -134,11 +134,12 @@ jobs:
               .toList()
             require(javaFiles.isNotEmpty()) { "No Java files found under $root" }
 
+            val jdkRoots = getJdkClassesRootsFromCurrentJre()
             val config = UastEnvironment.Configuration.create().apply {
               javaLanguageLevel = LanguageLevel.JDK_1_8
               addSourceRoots(listOf(root))
-              addClasspathRoots(classpath.filter(File::exists))
-              kotlinCompilerConfig.addJvmClasspathRoots(getJdkClassesRootsFromCurrentJre())
+              addClasspathRoots(classpath.filter(File::exists) + jdkRoots)
+              kotlinCompilerConfig.addJvmClasspathRoots(jdkRoots)
               kotlinCompilerConfig.put(JVMConfigurationKeys.NO_JDK, false)
             }
             val env = UastEnvironment.create(config)
