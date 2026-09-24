@@ -90,7 +90,7 @@ jobs:
           anchor = '''maven.artifact(
               artifact = "caffeine",
               group = "com.github.ben-manes.caffeine",
-              neverlink = True,
+              neverlink = False,
               version = "3.2.3",  # newer version than lint-api's dep with nullness annotations
           )
           '''
