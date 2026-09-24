@@ -112,7 +112,7 @@ jobs:
 
           import com.android.tools.lint.UastEnvironment
           import com.google.devtools.jvmtools.convert.psi2k.translateToKotlin
-          import com.intellij.openapi.vfs.LocalFileSystem
+          import com.intellij.openapi.vfs.StandardFileSystems
           import com.intellij.pom.java.LanguageLevel
           import com.intellij.psi.PsiManager
           import java.io.File
@@ -142,10 +142,10 @@ jobs:
               kotlinCompilerConfig.put(JVMConfigurationKeys.NO_JDK, false)
             }
             val env = UastEnvironment.create(config)
-            val fs = LocalFileSystem.getInstance()
+            val fs = StandardFileSystems.local()
             val psi = PsiManager.getInstance(env.ideaProject)
             for (javaFile in javaFiles) {
-              val virtual = fs.refreshAndFindFileByIoFile(javaFile)
+              val virtual = fs.findFileByPath(javaFile.absolutePath)
                 ?: error("Virtual file missing: $javaFile")
               val psiFile = psi.findFile(virtual)
                 ?: error("PSI file missing: $javaFile")
