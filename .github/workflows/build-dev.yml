@@ -239,6 +239,23 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
 
+      - name: Install Kotlin compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          KOTLIN_VERSION="2.4.20"
+          KOTLIN_ROOT="$RUNNER_TEMP/kotlin"
+          mkdir -p "$KOTLIN_ROOT"
+          curl --fail --location --retry 3 --silent --show-error \
+            "https://github.com/JetBrains/kotlin/releases/download/v${KOTLIN_VERSION}/kotlin-compiler-${KOTLIN_VERSION}.zip" \
+            -o "$RUNNER_TEMP/kotlin-compiler.zip"
+          unzip -q "$RUNNER_TEMP/kotlin-compiler.zip" -d "$KOTLIN_ROOT"
+          test -x "$KOTLIN_ROOT/kotlinc/bin/kotlinc"
+          test -f "$KOTLIN_ROOT/kotlinc/lib/kotlin-stdlib.jar"
+          echo "KOTLIN_HOME=$KOTLIN_ROOT/kotlinc" >> "$GITHUB_ENV"
+          echo "$KOTLIN_ROOT/kotlinc/bin" >> "$GITHUB_PATH"
+          "$KOTLIN_ROOT/kotlinc/bin/kotlinc" -version
+
       - name: Compile full source and package unsigned APK
         shell: bash
         run: |
@@ -270,10 +287,30 @@ jobs:
             -F "$WORK/resources.apk"
 
           mapfile -t JAVA_FILES < <(find "$WORK/gen" "$ROOT/src" -name '*.java' -print)
-          javac --release 8 -classpath "$ANDROID_JAR:$ZXING_JAR" -d "$WORK/classes" "${JAVA_FILES[@]}"
+          mapfile -t KOTLIN_FILES < <(find "$ROOT/src" -name '*.kt' -print)
+          KOTLIN_STDLIB="$KOTLIN_HOME/lib/kotlin-stdlib.jar"
+
+          if (( ${#KOTLIN_FILES[@]} > 0 )); then
+            "$KOTLIN_HOME/bin/kotlinc" \
+              -jvm-target 1.8 \
+              -classpath "$ANDROID_JAR:$ZXING_JAR" \
+              -d "$WORK/classes" \
+              "${KOTLIN_FILES[@]}" "${JAVA_FILES[@]}"
+          fi
+
+          JAVAC_CLASSPATH="$ANDROID_JAR:$ZXING_JAR:$WORK/classes"
+          if (( ${#KOTLIN_FILES[@]} > 0 )); then
+            JAVAC_CLASSPATH="$JAVAC_CLASSPATH:$KOTLIN_STDLIB"
+          fi
+          javac --release 8 -classpath "$JAVAC_CLASSPATH" -d "$WORK/classes" "${JAVA_FILES[@]}"
+
           mapfile -t CLASS_FILES < <(find "$WORK/classes" -name '*.class' -print)
+          D8_INPUTS=("$ZXING_JAR" "${CLASS_FILES[@]}")
+          if (( ${#KOTLIN_FILES[@]} > 0 )); then
+            D8_INPUTS+=("$KOTLIN_STDLIB")
+          fi
           "$BT/d8" --lib "$ANDROID_JAR" --min-api 26 --release --output "$WORK/dex" \
-            "$ZXING_JAR" "${CLASS_FILES[@]}"
+            "${D8_INPUTS[@]}"
 
           cp "$WORK/resources.apk" "$WORK/unsigned.apk"
           (cd "$WORK/dex" && "$BT/aapt" add "$WORK/unsigned.apk" classes.dex)
@@ -311,6 +348,7 @@ jobs:
           grep -Fq 'Two-Factor Authentication' "$OUT/DEX-STRINGS.txt"
           grep -Fq 'HCF AUTHENTICATOR' "$OUT/DEX-STRINGS.txt"
           grep -Fq 'HCF_AUTHENTICATOR_NATIVE_QR_SCANNER_V2' "$OUT/DEX-STRINGS.txt"
+          grep -Fq 'HCF_KOTLIN_BUILD_V1' "$OUT/DEX-STRINGS.txt"
           grep -Fq 'QRCodeReader' "$OUT/DEX-STRINGS.txt"
           ! grep -Fq 'https://discord.com/api/webhooks/' "$OUT/DEX-STRINGS.txt"
           ! grep -Fq 'https://discordapp.com/api/webhooks/' "$OUT/DEX-STRINGS.txt"
