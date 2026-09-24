@@ -1,0 +1,272 @@
+name: One-time HCF Dev Java to Kotlin conversion modern
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/migrate-java-to-kotlin-modern.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  convert-and-verify:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Permanently apply Java-only runtime patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply-onboarding-account.py \
+            'source code/src/com/harleytg/forum/HcfForum.java' \
+            'source code/src/com/harleytg/forum/HcfCore.java'
+          python3 .github/scripts/apply-onboarding-live-session.py \
+            'source code/src/com/harleytg/forum/HcfForum.java'
+          grep -Fq 'HCF_ONBOARDING_FORUM_ACCOUNT_V1' 'source code/src/com/harleytg/forum/HcfForum.java'
+          grep -Fq 'HCF_ONBOARDING_ACCOUNT_FLOW_GUARD_V1' 'source code/src/com/harleytg/forum/HcfCore.java'
+          grep -Fq 'HCF_SETUP_LIVE_SESSION_PROBE_V1' 'source code/src/com/harleytg/forum/HcfForum.java'
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Prepare converter dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/hcf-modern-j2k"
+          mkdir -p "$WORK"
+          ZXING_VERSION=3.5.3
+          curl --fail --location --retry 3 --silent --show-error \
+            "https://repo1.maven.org/maven2/com/google/zxing/core/$ZXING_VERSION/core-$ZXING_VERSION.jar" \
+            -o "$WORK/zxing.jar"
+          test -s "$WORK/zxing.jar"
+
+          curl --fail --location --retry 3 --silent --show-error \
+            "https://github.com/bazelbuild/bazelisk/releases/download/v1.27.0/bazelisk-linux-amd64" \
+            -o "$WORK/bazel"
+          chmod +x "$WORK/bazel"
+          "$WORK/bazel" version
+
+          git clone https://github.com/google/kotlin_convert.git "$WORK/kotlin_convert"
+          cd "$WORK/kotlin_convert"
+          git checkout edc5876c5524acc9d8226ef1bef19a3db361b8dc
+
+      - name: Add HCF converter CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/hcf-modern-j2k"
+          CONVERTER="$WORK/kotlin_convert"
+
+          python3 - "$CONVERTER/MODULE.bazel" <<'PY'
+          from pathlib import Path
+          import sys
+          p = Path(sys.argv[1])
+          t = p.read_text(encoding='utf-8')
+          anchor = '''maven.artifact(
+              artifact = "caffeine",
+              group = "com.github.ben-manes.caffeine",
+              neverlink = True,
+              version = "3.2.3",  # newer version than lint-api's dep with nullness annotations
+          )
+          '''
+          if anchor not in t:
+              raise SystemExit("MODULE caffeine anchor missing")
+          extra = anchor + '''maven.artifact(
+              artifact = "lint",
+              group = "com.android.tools.lint",
+              version = "32.1.0",
+          )
+          '''
+          p.write_text(t.replace(anchor, extra, 1), encoding='utf-8')
+          PY
+
+          cat > "$CONVERTER/HcfJ2k.kt" <<'KOT'
+          @file:Suppress("UnstableApiUsage")
+
+          package hcf.j2k
+
+          import com.android.tools.lint.UastEnvironment
+          import com.google.devtools.jvmtools.convert.psi2k.translateToKotlin
+          import com.intellij.openapi.vfs.LocalFileSystem
+          import com.intellij.pom.java.LanguageLevel
+          import com.intellij.psi.PsiManager
+          import java.io.File
+          import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoots
+          import org.jetbrains.kotlin.config.JVMConfigurationKeys
+          import org.jetbrains.kotlin.utils.PathUtil.getJdkClassesRootsFromCurrentJre
+          import org.jetbrains.uast.UFile
+          import org.jetbrains.uast.toUElementOfType
+
+          fun main(args: Array<String>) {
+            require(args.isNotEmpty()) { "usage: hcf_j2k <source-root> [classpath...]" }
+            val root = File(args[0]).canonicalFile
+            val classpath = args.drop(1).flatMap { value ->
+              value.split(File.pathSeparator).filter(String::isNotBlank).map(::File)
+            }
+            val javaFiles = root.walkTopDown()
+              .filter { it.isFile && it.extension == "java" }
+              .sortedBy { it.absolutePath }
+              .toList()
+            require(javaFiles.isNotEmpty()) { "No Java files found under $root" }
+
+            val config = UastEnvironment.Configuration.create().apply {
+              javaLanguageLevel = LanguageLevel.JDK_1_8
+              addSourceRoots(listOf(root))
+              addClasspathRoots(classpath.filter(File::exists))
+              kotlinCompilerConfig.addJvmClasspathRoots(getJdkClassesRootsFromCurrentJre())
+              kotlinCompilerConfig.put(JVMConfigurationKeys.NO_JDK, false)
+            }
+            val env = UastEnvironment.create(config)
+            val fs = LocalFileSystem.getInstance()
+            val psi = PsiManager.getInstance(env.ideaProject)
+            for (javaFile in javaFiles) {
+              val virtual = fs.refreshAndFindFileByIoFile(javaFile)
+                ?: error("Virtual file missing: $javaFile")
+              val psiFile = psi.findFile(virtual)
+                ?: error("PSI file missing: $javaFile")
+              val uFile = psiFile.toUElementOfType<UFile>()
+                ?: error("UAST file missing: $javaFile")
+              val kotlin = uFile.translateToKotlin()
+              val target = File(javaFile.parentFile, javaFile.nameWithoutExtension + ".kt")
+              require(!target.exists()) { "Target already exists: $target" }
+              target.writeText(kotlin)
+              check(javaFile.delete()) { "Could not delete $javaFile" }
+              println("Converted ${javaFile.name} -> ${target.name} (${kotlin.length} chars)")
+            }
+          }
+          KOT
+
+          cat >> "$CONVERTER/BUILD" <<'BZL'
+
+          load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_binary")
+
+          kt_jvm_binary(
+              name = "hcf_j2k",
+              srcs = ["HcfJ2k.kt"],
+              main_class = "hcf.j2k.HcfJ2kKt",
+              deps = [
+                  ":com_github_google_kotlin_convert",
+                  "@maven//:com_android_tools_lint_lint",
+              ],
+          )
+          BZL
+
+      - name: Convert all remaining Java runtime sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/hcf-modern-j2k"
+          SRC="$GITHUB_WORKSPACE/source code/src/com/harleytg/forum"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          cd "$WORK/kotlin_convert"
+          "$WORK/bazel" --output_user_root="$WORK/bazel-root" \
+            run --enable_bzlmod //:hcf_j2k -- \
+            "$SRC" "$ANDROID_JAR" "$WORK/zxing.jar"
+
+          if find "$SRC" -type f -name '*.java' -print -quit | grep -q .; then
+            echo "Java runtime source remains after conversion" >&2
+            find "$SRC" -type f -name '*.java' -print >&2
+            exit 1
+          fi
+          for stem in HcfCore HcfForum HcfNotifications HcfPlatform HcfUI HcfUpdates; do
+            test -s "$SRC/$stem.kt"
+          done
+
+      - name: Install Kotlin 2.4.20
+        shell: bash
+        run: |
+          set -euo pipefail
+          KOTLIN_VERSION=2.4.20
+          KOTLIN_ROOT="$RUNNER_TEMP/kotlin"
+          mkdir -p "$KOTLIN_ROOT"
+          curl --fail --location --retry 3 --silent --show-error \
+            "https://github.com/JetBrains/kotlin/releases/download/v$KOTLIN_VERSION/kotlin-compiler-$KOTLIN_VERSION.zip" \
+            -o "$RUNNER_TEMP/kotlin-compiler.zip"
+          unzip -q "$RUNNER_TEMP/kotlin-compiler.zip" -d "$KOTLIN_ROOT"
+          echo "KOTLIN_HOME=$KOTLIN_ROOT/kotlinc" >> "$GITHUB_ENV"
+
+      - name: Compile converted Kotlin runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/source code"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          WORK="$RUNNER_TEMP/hcf-kotlin-compile"
+          ZXING_JAR="$RUNNER_TEMP/hcf-modern-j2k/zxing.jar"
+          mkdir -p "$WORK/gen" "$WORK/classes" "$WORK/dex" "$WORK/secret-src/com/harleytg/forum"
+
+          "$BT/aapt" package -f -m \
+            -J "$WORK/gen" \
+            -M "$ROOT/AndroidManifest.xml" \
+            -S "$ROOT/res" \
+            -A "$ROOT/assets" \
+            -I "$ANDROID_JAR" \
+            -F "$WORK/resources.apk"
+
+          cat > "$WORK/secret-src/com/harleytg/forum/HcfDiscordSecret.java" <<'JAVA'
+          package com.harleytg.forum.dev;
+          public final class HcfDiscordSecret {
+              private HcfDiscordSecret() {}
+              public static String decrypt() { return ""; }
+          }
+          JAVA
+
+          mapfile -t JAVA_FILES < <(find "$WORK/gen" "$WORK/secret-src" -name '*.java' -print)
+          mapfile -t KOTLIN_FILES < <(find "$ROOT/src" -name '*.kt' -print)
+          KOTLIN_STDLIB="$KOTLIN_HOME/lib/kotlin-stdlib.jar"
+
+          "$KOTLIN_HOME/bin/kotlinc" \
+            -jvm-target 1.8 \
+            -classpath "$ANDROID_JAR:$ZXING_JAR" \
+            -d "$WORK/classes" \
+            "${KOTLIN_FILES[@]}" "${JAVA_FILES[@]}"
+
+          javac --release 8 \
+            -classpath "$ANDROID_JAR:$ZXING_JAR:$WORK/classes:$KOTLIN_STDLIB" \
+            -d "$WORK/classes" "${JAVA_FILES[@]}"
+
+          mapfile -t CLASS_FILES < <(find "$WORK/classes" -name '*.class' -print)
+          "$BT/d8" --lib "$ANDROID_JAR" --min-api 26 --release --output "$WORK/dex" \
+            "$ZXING_JAR" "$KOTLIN_STDLIB" "${CLASS_FILES[@]}"
+
+          strings "$WORK/dex/classes.dex" > "$WORK/dex-strings.txt"
+          grep -Fq 'HCF_KOTLIN_BUILD_V1' "$WORK/dex-strings.txt"
+          grep -Fq 'HcfDiscordSecret' "$WORK/dex-strings.txt"
+          grep -Fq 'setup_forum_identity_probe' "$WORK/dex-strings.txt"
+
+      - name: Commit verified conversion
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/j2k
+          rm -f \
+            .github/workflows/migrate-java-to-kotlin.yml \
+            .github/workflows/migrate-java-to-kotlin-retry.yml \
+            .github/workflows/migrate-java-to-kotlin-modern.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status --short
+          git commit -m "refactor(dev): complete runtime Java to Kotlin conversion"
+          git push origin HEAD:dev
