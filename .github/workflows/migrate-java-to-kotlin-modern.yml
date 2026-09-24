@@ -84,6 +84,9 @@ jobs:
           import sys
           p = Path(sys.argv[1])
           t = p.read_text(encoding='utf-8')
+          # kotlin_convert is normally loaded inside Android Lint and marks its
+          # Lint/Caffeine deps neverlink. This standalone CLI needs them at runtime.
+          t = t.replace("neverlink = True,", "neverlink = False,")
           anchor = '''maven.artifact(
               artifact = "caffeine",
               group = "com.github.ben-manes.caffeine",
