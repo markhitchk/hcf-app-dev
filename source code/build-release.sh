@@ -156,13 +156,48 @@ fi
   -F "$work/resources.apk"
 
 mapfile -t java_files < <(find "$work/gen" "$work/src" "$work/secret-src" -name '*.java' -print)
-javac --release 8 -classpath "$android_jar" -d "$work/classes" "${java_files[@]}"
+mapfile -t kotlin_files < <(find "$work/src" "$work/secret-src" -name '*.kt' -print)
+kotlin_stdlib=""
+
+if (( ${#kotlin_files[@]} > 0 )); then
+  kotlinc_bin="${KOTLINC:-$(command -v kotlinc || true)}"
+  [[ -n "$kotlinc_bin" && -x "$kotlinc_bin" ]] || {
+    echo "Kotlin sources found but kotlinc is unavailable. Install Kotlin 2.4.20 or set KOTLINC." >&2
+    exit 38
+  }
+
+  kotlin_home="${KOTLIN_HOME:-$(cd "$(dirname "$kotlinc_bin")/.." && pwd)}"
+  kotlin_stdlib="$kotlin_home/lib/kotlin-stdlib.jar"
+  [[ -f "$kotlin_stdlib" ]] || {
+    echo "Missing Kotlin stdlib at $kotlin_stdlib" >&2
+    exit 39
+  }
+
+  "$kotlinc_bin" \
+    -jvm-target 1.8 \
+    -classpath "$android_jar" \
+    -d "$work/classes" \
+    "${kotlin_files[@]}" "${java_files[@]}"
+fi
+
+java_classpath="$android_jar:$work/classes"
+if [[ -n "$kotlin_stdlib" ]]; then
+  java_classpath="$java_classpath:$kotlin_stdlib"
+fi
+javac --release 8 -classpath "$java_classpath" -d "$work/classes" "${java_files[@]}"
 
 mapfile -t class_files < <(find "$work/classes" -name '*.class' -print)
-"$build_tools/d8" --lib "$android_jar" --min-api 26 --release --output "$work/dex" "${class_files[@]}"
+d8_inputs=("${class_files[@]}")
+if [[ -n "$kotlin_stdlib" ]]; then
+  d8_inputs+=("$kotlin_stdlib")
+fi
+"$build_tools/d8" --lib "$android_jar" --min-api 26 --release --output "$work/dex" "${d8_inputs[@]}"
 
 strings "$work/dex/classes.dex" > "$work/dex-strings.txt"
 grep -Fq 'HcfDiscordSecret' "$work/dex-strings.txt" || { echo "Generated Discord binding missing from DEX" >&2; exit 32; }
+if (( ${#kotlin_files[@]} > 0 )); then
+  grep -Fq 'HCF_KOTLIN_BUILD_V1' "$work/dex-strings.txt" || { echo "Kotlin build marker missing from DEX" >&2; exit 40; }
+fi
 grep -Fq 'setup_forum_identity_probe' "$work/dex-strings.txt" || { echo "Live forum identity probe missing from DEX" >&2; exit 37; }
 if grep -Eaq 'https://(www\.)?discord(app)?\.com/api/webhooks/[0-9]{5,}/[A-Za-z0-9._-]{20,}' "$work/dex-strings.txt"; then
   echo "Plaintext Discord webhook credential found in DEX" >&2
