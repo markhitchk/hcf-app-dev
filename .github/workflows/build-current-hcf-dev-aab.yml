@@ -1,0 +1,133 @@
+name: Build Current HCF Dev AAB
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-current-hcf-dev-aab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact HCF dev source
+        uses: actions/checkout@v4
+        with:
+          repository: Harleys-studios/hcf-app
+          ref: 9106b64ce3015e949895d7a951c471362daadf11
+          path: app-src
+          persist-credentials: false
+
+      - name: Read build identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/app-src/source code"
+          HCF_VERSION_CODE="$(sed -n 's/.*android:versionCode="\([0-9][0-9]*\)".*/\1/p' "$ROOT/AndroidManifest.xml" | head -1)"
+          HCF_VERSION_NAME="$(sed -n 's/.*android:versionName="\([^"]*\)".*/\1/p' "$ROOT/AndroidManifest.xml" | head -1)"
+          test "$HCF_VERSION_CODE" = "100000129"
+          test "$HCF_VERSION_NAME" = "1.2 (100000129)"
+          echo "HCF_VERSION_CODE=$HCF_VERSION_CODE" >> "$GITHUB_ENV"
+          echo "HCF_VERSION_NAME=$HCF_VERSION_NAME" >> "$GITHUB_ENV"
+
+      - name: Apply normal dev source transforms
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/app-src"
+          python3 .github/scripts/apply-onboarding-account.py             'source code/src/com/harleytg/forum/HcfForum.java'             'source code/src/com/harleytg/forum/HcfCore.java'
+          python3 .github/scripts/apply-onboarding-live-session.py             'source code/src/com/harleytg/forum/HcfForum.java'
+          python3 .github/scripts/apply-motion-overhaul.py 'source code'
+
+      - name: Generate local dev Discord binding fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/app-src/source code/src/com/harleytg/forum/HcfDiscordSecret.java"
+          cat > "$OUT" <<'JAVA'
+          package com.harleytg.forum.dev;
+
+          /** Build-time fallback used only when the original repository secret is unavailable. */
+          public final class HcfDiscordSecret {
+              private HcfDiscordSecret() {}
+              public static String decrypt() {
+                  return "";
+              }
+          }
+          JAVA
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Build Android App Bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/app-src/source code"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          WORK="$RUNNER_TEMP/hcf-dev-aab"
+          OUT="$GITHUB_WORKSPACE/aab-out"
+          ZXING_VERSION="3.5.3"
+          BUNDLETOOL_VERSION="1.18.3"
+          ZXING_JAR="$WORK/zxing-core.jar"
+          BUNDLETOOL_JAR="$WORK/bundletool.jar"
+
+          rm -rf "$WORK" "$OUT"
+          mkdir -p "$WORK/compiled" "$WORK/gen" "$WORK/classes" "$WORK/dex" "$WORK/module" "$OUT"
+
+          curl --fail --location --retry 3 --silent --show-error             "https://repo1.maven.org/maven2/com/google/zxing/core/${ZXING_VERSION}/core-${ZXING_VERSION}.jar"             -o "$ZXING_JAR"
+          curl --fail --location --retry 3 --silent --show-error             "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"             -o "$BUNDLETOOL_JAR"
+
+          "$BT/aapt2" compile --dir "$ROOT/res" -o "$WORK/compiled"
+          mapfile -t FLATS < <(find "$WORK/compiled" -type f -name '*.flat' -print | sort)
+          test "${#FLATS[@]}" -gt 0
+
+          "$BT/aapt2" link             --proto-format             -o "$WORK/base-res.apk"             -I "$ANDROID_JAR"             --manifest "$ROOT/AndroidManifest.xml"             --java "$WORK/gen"             -A "$ROOT/assets"             "${FLATS[@]}"
+
+          mapfile -t JAVA_FILES < <(find "$WORK/gen" "$ROOT/src" -name '*.java' -print)
+          javac --release 8 -classpath "$ANDROID_JAR:$ZXING_JAR" -d "$WORK/classes" "${JAVA_FILES[@]}"
+
+          mapfile -t CLASS_FILES < <(find "$WORK/classes" -name '*.class' -print)
+          "$BT/d8" --lib "$ANDROID_JAR" --min-api 26 --release             --output "$WORK/dex" "$ZXING_JAR" "${CLASS_FILES[@]}"
+
+          unzip -q "$WORK/base-res.apk" -d "$WORK/module"
+          mkdir -p "$WORK/module/manifest" "$WORK/module/dex"
+          mv "$WORK/module/AndroidManifest.xml" "$WORK/module/manifest/AndroidManifest.xml"
+          cp "$WORK/dex"/classes*.dex "$WORK/module/dex/"
+          (cd "$WORK/module" && zip -qr "$WORK/base.zip" .)
+
+          AAB="$OUT/HCF-Beta-v100000129-dev-unsigned.aab"
+          java -jar "$BUNDLETOOL_JAR" build-bundle --modules="$WORK/base.zip" --output="$AAB"
+          java -jar "$BUNDLETOOL_JAR" validate --bundle="$AAB"
+
+          unzip -l "$AAB" > "$OUT/AAB-CONTENTS.txt"
+          sha256sum "$AAB" > "$OUT/SHA256SUMS.txt"
+          cat > "$OUT/BUILD-METADATA.txt" <<EOF
+          package=com.harleytg.forum.dev
+          versionCode=100000129
+          versionName=1.2 (100000129)
+          source_repo=Harleys-studios/hcf-app
+          source_commit=9106b64ce3015e949895d7a951c471362daadf11
+          signing=unsigned
+          discord_observation=fallback-empty-binding
+          EOF
+
+      - name: Upload unsigned AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: HCF-Beta-v100000129-Dev-AAB-Unsigned
+          path: aab-out/
+          if-no-files-found: error
+          retention-days: 2
