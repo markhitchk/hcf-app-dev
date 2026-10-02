@@ -1015,10 +1015,12 @@ final class UpdateAutomation {
                     String assetKey = release.assetKey();
                     sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
                     if (z2) {
-                        sharedPreferences.edit().putString("update_last_available_tag", assetKey).apply();
-                        if (sharedPreferences.getBoolean("update_auto_download", false) && release.apkUrl != null && !release.apkUrl.isEmpty()) {
-                            AppUpdateDownloader.enqueue(applicationContext, release, false);
-                        } else if (!assetKey.equals(string)) {
+                        sharedPreferences.edit()
+                                .putBoolean("update_auto_download", false)
+                                .putBoolean("update_auto_install", false)
+                                .putString("update_last_available_tag", assetKey)
+                                .apply();
+                        if (!assetKey.equals(string)) {
                             NotificationHelper.postUpdateAvailable(applicationContext, release);
                         }
                     }
@@ -1139,10 +1141,10 @@ final class ReleaseNotes {
         addSection(activity, linearLayout4, "Current Dev build", "Harley's Clan Forum v" + BuildInfo.VERSION + " (versionCode " + BuildInfo.VERSION_CODE + ") • " + BuildInfo.BUILD_TAG + ".");
         addSection(activity, linearLayout4, "Updated • Build identity", "The forum drawer and App Settings now show the full version, Android versionCode, and Development Build / Beta tag instead of only the channel label.");
         addSection(activity, linearLayout4, "Updated • What's New", "The banner, release-notes header, summary and accessibility text now read the live BuildInfo version/build so old fixed v1.0 text cannot drift out of date.");
-        addSection(activity, linearLayout4, "Fixed • Android 14 notification service crash", "Network-available and screen-on callbacks no longer restart the foreground notification service with startForegroundService(). They request immediate sync on the service that is already running.");
+        addSection(activity, linearLayout4, "Updated • Play-compliant notification sync", "Background alerts use scheduled jobs and one-shot sync requests without a special-use foreground service.");
         addSection(activity, linearLayout4, "Recovery • Safe Mode and crash tools", "Safe Mode, crash recovery, diagnostics and sanitized crash reporting remain available to recover from startup or runtime failures.");
         addSection(activity, linearLayout4, "Updated • Home-screen Widget", "Widget settings cover app-theme following, compact mode, unread count, last-updated status, refresh behavior and configurable tap actions.");
-        addSection(activity, linearLayout4, "Updated • Secure Dev/Beta updates", "Update checks compare Android versionCode and APK SHA-256, allowing a revised same-version APK only when its hash differs while preserving package and signer verification.");
+        addSection(activity, linearLayout4, "Updated • Google Play delivery", "Update checks can report newer builds, while installation and signing delivery are handled by Google Play.");
         addSection(activity, linearLayout4, "Updated • Appearance and performance", "Forum Auto, Phone Auto, Light, Dark and AMOLED themes remain available together with the app's performance profiles and runtime tools.");
         scrollView.addView(linearLayout4, new FrameLayout.LayoutParams(-1, -2));
         LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, 0, 1.0f);

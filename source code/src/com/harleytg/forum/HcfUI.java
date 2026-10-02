@@ -4690,7 +4690,7 @@ final class HcfSubActivities {
                 new SettingTarget("installed_version", "Installed version", "version versioncode build installed", "advanced", "app_updates"),
                 new SettingTarget("automatic_update_checks", "Automatic update checks", "updates check automatic", "advanced", "app_updates"),
                 new SettingTarget("check_updates", "Check for Updates", "updates latest release version", "advanced", "app_updates"),
-                new SettingTarget("apk_verification", "APK verification information", "updates apk verification signing certificate package versioncode", "advanced", "app_updates"),
+                new SettingTarget("apk_verification", "Google Play update information", "updates google play signing delivery store", "advanced", "app_updates"),
                 new SettingTarget("error_recovery_check", "Run Error & Recovery Check", "errors crash recovery diagnostics webview", "advanced", "error_recovery"),
                 new SettingTarget("runtime_snapshot", "Runtime Snapshot", "runtime webview renderer network native error recovery", "advanced", "error_recovery"),
                 new SettingTarget("copy_diagnostic_report", "Copy Sanitized Diagnostic Report", "logs crash errors reports diagnostics", "advanced", "error_recovery"),
@@ -6072,46 +6072,39 @@ final class HcfSubActivities {
             card.addView(settingsInfoCard("Background activity",
                     backgroundDeliveryPermissionSummary(backgroundExempt),
                     R.drawable.fa_bell));
-            card.addView(target(actionButton(
-                    backgroundExempt ? "Background Battery Access: Allowed" : "Allow Background Battery Access",
+            card.addView(target(actionButton("Open Android Battery Settings",
                     v -> openBackgroundBatteryAccess()), "background_battery_permission"));
 
-            boolean installAllowed = AppSecurity.canInstallUpdates(this);
-            card.addView(settingsInfoCard("Secure app updates",
-                    installAllowed
-                            ? "Allowed • Android permits HCF Beta to hand a verified APK to the package installer."
-                            : "Approval required • downloaded updates can be verified, but Android will not install them until this app source is allowed.",
+            card.addView(settingsInfoCard("App updates",
+                    "Managed by Google Play • HCF does not request permission to install APKs from this source.",
                     R.drawable.fa_shield));
-            card.addView(target(actionButton(
-                    installAllowed ? "Secure App Updates: Allowed" : "Allow Secure App Updates",
+            card.addView(target(actionButton("Open Google Play",
                     v -> openInstallPermission()), "secure_updates_permission"));
 
             card.addView(settingsSubsectionHeader("System access", "Declared Android capabilities that do not use runtime permission dialogs", R.drawable.fa_gear));
-            card.addView(settingsInfoCard("Background service support",
-                    "Foreground service: Declared • special-use foreground service: Declared • restart after boot/update: Declared • JobScheduler fallback: Enabled.",
+            card.addView(settingsInfoCard("Background notification support",
+                    "JobScheduler + one-shot sync • no special-use foreground-service permission.",
                     R.drawable.fa_shield));
             card.addView(settingsInfoCard("Network access",
                     "Internet + network-state access are declared for the forum WebView, notification sync, domain failover, and update checks.",
                     R.drawable.fa_lock));
 
             card.addView(target(actionButton("Android App Permission Settings", v -> openAndroidAppSettings()), "android_permission_settings"));
-            card.addView(text("HCF does not request location, contacts, microphone, camera, or broad storage access. Background battery access is an Android power-management setting, not a normal runtime permission. Turning on Silence HCF Silent Alerts still stops the live foreground service even when background battery access is allowed.", 10, getColor(R.color.hcf_muted)));
+            card.addView(text("HCF does not request install-from-unknown-sources or direct battery-optimization exemption permissions. Background work uses Android scheduling, and app updates are delivered through Google Play.", 10, getColor(R.color.hcf_muted)));
             return card;
         }
 
         private String permissionSecuritySummary() {
             boolean notifications = NotificationHelper.hasRuntimePermission(this);
             boolean backgroundExempt = isBackgroundBatteryExempt();
-            boolean installs = AppSecurity.canInstallUpdates(this);
             return "Notifications: " + (notifications ? "Allowed" : "Needs permission")
-                    + "\nBackground battery access: " + (backgroundExempt ? "Allowed / exempt" : "Android may restrict")
-                    + "\nSecure update installs: " + (installs ? "Allowed" : "Needs approval")
-                    + "\nForeground service: Declared • Boot restart: Declared";
+                    + "\nBattery policy: " + (backgroundExempt ? "Exempt" : "Android managed")
+                    + "\nApp updates: Google Play"
+                    + "\nBackground sync: JobScheduler + one-shot sync";
         }
 
         private String backgroundDeliveryPermissionSummary(boolean backgroundExempt) {
             boolean backgroundSync = prefs.getBoolean(AppPrefs.BACKGROUND_NOTIFICATION_SYNC, true);
-            boolean silentSuppressed = prefs.getBoolean(AppPrefs.SILENCE_BACKGROUND_SERVICE_NOTIFICATION, false);
             String sessionUserId = prefs.getString(AppPrefs.SESSION_USER_ID, "");
             boolean signedIn = sessionUserId != null && !sessionUserId.trim().isEmpty();
 
@@ -6120,15 +6113,13 @@ final class HcfSubActivities {
                 mode = "Background notification sync is off.";
             } else if (!signedIn) {
                 mode = "Background sync is enabled but waiting for a signed-in forum session.";
-            } else if (silentSuppressed) {
-                mode = "Scheduled jobs only • HCF Silent Alerts is silenced, so the live foreground service is intentionally stopped.";
             } else {
-                mode = "Live foreground service is eligible • notification 41070 can run on HCF Silent Alerts.";
+                mode = "Scheduled jobs + one-shot sync are enabled; Android controls execution timing.";
             }
 
             return (backgroundExempt
-                    ? "Battery optimization exemption is active. "
-                    : "Battery optimization exemption is not active; Android may delay background work. ")
+                    ? "Battery optimization exemption is currently active. "
+                    : "Android battery policy is active; HCF does not request a direct exemption. ")
                     + mode;
         }
 
@@ -6147,38 +6138,23 @@ final class HcfSubActivities {
                 Toast.makeText(this, "Background battery restrictions do not apply on this Android version.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (isBackgroundBatteryExempt()) {
-                Toast.makeText(this, "Background battery access is already allowed.", Toast.LENGTH_SHORT).show();
-                try {
-                    startActivity(new Intent("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS"));
-                } catch (Throwable ignored) {
-                    openAndroidAppSettings();
-                }
-                return;
-            }
             try {
-                Intent intent = new Intent("android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS");
-                intent.setData(Uri.parse("package:" + getPackageName()));
-                startActivity(intent);
-            } catch (Throwable error) {
-                try {
-                    startActivity(new Intent("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS"));
-                } catch (Throwable ignored) {
-                    openAndroidAppSettings();
-                }
+                startActivity(new Intent("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS"));
+            } catch (Throwable ignored) {
+                openAndroidAppSettings();
             }
         }
 
         private void openInstallPermission() {
-            if (AppSecurity.canInstallUpdates(this)) {
-                Toast.makeText(this, "Secure app update installation is already allowed.", Toast.LENGTH_SHORT).show();
-                refreshStatusLabels();
-                return;
-            }
             try {
-                startActivity(new Intent("android.settings.MANAGE_UNKNOWN_APP_SOURCES", Uri.parse("package:" + getPackageName())));
-            } catch (Throwable error) {
-                Toast.makeText(this, "Android could not open the update install permission screen.", Toast.LENGTH_LONG).show();
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + getPackageName())));
+            } catch (Throwable first) {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://play.google.com/store/apps/details?id=" + getPackageName())));
+                } catch (Throwable error) {
+                    Toast.makeText(this, "Google Play could not be opened on this device.", Toast.LENGTH_LONG).show();
+                }
             }
         }
 
@@ -6192,7 +6168,13 @@ final class HcfSubActivities {
 
         private View updateCard() {
             LinearLayout card = card();
-            card.addView(sectionTitle("App Updates", "Secure automatic app updates"));
+            card.addView(sectionTitle("App Updates", "Google Play managed updates"));
+            prefs.edit()
+                    .putBoolean("update_auto_download", false)
+                    .putBoolean("update_auto_install", false)
+                    .remove("update_resume_after_permission")
+                    .apply();
+
             updateChannelStatus = target(text(updateChannelLine(effectiveUpdateChannel()), 12, getColor(R.color.hcf_meta)), "update_channel");
             updateChannelStatus.setTypeface(null, 1);
             card.addView(updateChannelStatus);
@@ -6200,6 +6182,7 @@ final class HcfSubActivities {
             String checked = lastCheck <= 0 ? "Not checked yet on this install" : "Last checked " + ageLabel(lastCheck);
             updateStatus = target(text("Installed: v" + BuildInfo.VERSION + " (" + installedVersionCode() + ")\nLatest available: Not checked\n" + checked, 11, getColor(R.color.hcf_muted)), "installed_version");
             card.addView(updateStatus);
+
             Switch autoCheck = target(toggle("Automatic update checks", prefs.getBoolean("update_auto_check", true)), "automatic_update_checks");
             autoCheck.setOnCheckedChangeListener((button, enabled) -> {
                 prefs.edit().putBoolean("update_auto_check", enabled).apply();
@@ -6207,28 +6190,15 @@ final class HcfSubActivities {
                 AppLogger.info(this, "setting_update_auto_check", Boolean.toString(enabled));
             });
             card.addView(autoCheck);
-            Switch autoDownload = target(toggle("Automatically download new APKs", prefs.getBoolean("update_auto_download", false)), "auto_download_apk");
-            autoDownload.setOnCheckedChangeListener((button, enabled) -> {
-                prefs.edit().putBoolean("update_auto_download", enabled).apply();
-                AppLogger.info(this, "setting_update_auto_download", Boolean.toString(enabled));
-            });
-            card.addView(autoDownload);
-            Switch autoInstall = target(toggle("Open installer automatically after download", prefs.getBoolean("update_auto_install", true)), "auto_installer");
-            autoInstall.setOnCheckedChangeListener((button, enabled) -> {
-                prefs.edit().putBoolean("update_auto_install", enabled).apply();
-                AppLogger.info(this, "setting_update_auto_install", Boolean.toString(enabled));
-            });
-            card.addView(autoInstall);
+
             card.addView(target(actionButton("Check for Updates", v -> checkForUpdates(true)), "check_updates"));
-            updateDownloadButton = actionButton("Download Update Now", v -> downloadAvailableUpdate());
-            updateDownloadButton.setVisibility(View.GONE);
-            card.addView(updateDownloadButton);
-            updateInstallButton = actionButton("Install Downloaded Update", v -> installDownloadedUpdate());
-            updateInstallButton.setVisibility(AppUpdateDownloader.isDownloaded(this) ? View.VISIBLE : View.GONE);
-            card.addView(updateInstallButton);
-            TextView verification = target(text("APK verification: HCF checks the downloaded package name, Android versionCode, exact SHA-256 file hash, and signing-certificate lineage before opening Android's installer. A changed SHA-256 can also identify a revised APK with the same versionCode. Android still requires your confirmation to install.", 10, getColor(R.color.hcf_muted)), "apk_verification");
+            card.addView(target(actionButton("Open Google Play", v -> openInstallPermission()), "open_google_play"));
+
+            TextView verification = target(text("Google Play manages installation and signing delivery for this build. HCF no longer requests install-from-unknown-sources permission or downloads APKs for self-installation.", 10, getColor(R.color.hcf_muted)), "apk_verification");
             verification.setPadding(0, dp(8), 0, 0);
             card.addView(verification);
+            updateDownloadButton = null;
+            updateInstallButton = null;
             return card;
         }
 
@@ -6280,13 +6250,7 @@ final class HcfSubActivities {
                         updateStatus.setText(channelDisplayName(channel) + " Update Available\nInstalled: " + installed + "\nLatest available: " + remote + "\nReason: " + UpdateChecker.updateReason(release) + "\n" + releaseType + " • " + asset);
                         updateStatus.setTextColor(getColor(R.color.hcf_accent_text));
                         if (updateDownloadButton != null && release.apkUrl != null && !release.apkUrl.isEmpty()) updateDownloadButton.setVisibility(View.VISIBLE);
-                        if (prefs.getBoolean("update_auto_download", false) && release.apkUrl != null && !release.apkUrl.isEmpty()) {
-                            long id = AppUpdateDownloader.enqueue(SettingsActivity.this, release, userInitiated);
-                            if (id > 0) {
-                                updateStatus.append("\nAutomatic download queued • installer opens when ready.");
-                                watchUpdateDownloadForAutoInstall(id);
-                            }
-                        }
+                        prefs.edit().putBoolean("update_auto_download", false).putBoolean("update_auto_install", false).apply();
                         if (userInitiated) Toast.makeText(SettingsActivity.this, release.sameVersionHashUpdate
                                 ? "Revised Dev/Beta APK available • SHA-256 changed"
                                 : channelDisplayName(channel) + " update available" + (release.versionCode > 0 ? " • build " + release.versionCode : ""), Toast.LENGTH_LONG).show();
@@ -6333,43 +6297,19 @@ final class HcfSubActivities {
         }
 
         private void installDownloadedUpdate(long id) {
-            if (id <= 0) {
-                Toast.makeText(this, "No downloaded update is ready yet.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (getPackageManager().canRequestPackageInstalls()) {
-                if (!AppUpdateDownloader.openInstaller(this, id)) Toast.makeText(this, "The Android installer could not open this download.", Toast.LENGTH_LONG).show();
-                return;
-            }
-            try {
-                prefs.edit().putBoolean("update_resume_after_permission", true).apply();
-                startActivityForResult(new Intent("android.settings.MANAGE_UNKNOWN_APP_SOURCES", Uri.parse("package:" + getPackageName())), UPDATE_INSTALL_PERMISSION_REQUEST);
-                Toast.makeText(this, "Allow installs from this source. HCF will resume the verified update automatically when you return.", Toast.LENGTH_LONG).show();
-            } catch (Throwable error) {
-                prefs.edit().remove("update_resume_after_permission").apply();
-                Toast.makeText(this, "Android blocked installation permission settings.", Toast.LENGTH_LONG).show();
-            }
+            prefs.edit().remove("update_resume_after_permission").apply();
+            openInstallPermission();
         }
 
         private void resumeUpdateInstallAfterPermission() {
-            if (!prefs.getBoolean("update_resume_after_permission", false) || !AppSecurity.canInstallUpdates(this)) return;
             prefs.edit().remove("update_resume_after_permission").apply();
-            long id = AppUpdateDownloader.downloadedId(this);
-            if (id > 0) {
-                Toast.makeText(this, "Install permission enabled • opening verified update…", Toast.LENGTH_SHORT).show();
-                if (!AppUpdateDownloader.openInstaller(this, id)) Toast.makeText(this, "The Android installer could not open this verified update.", Toast.LENGTH_LONG).show();
-            }
         }
 
         @Override
         protected void onActivityResult(int requestCode, int resultCode, Intent data) {
             super.onActivityResult(requestCode, resultCode, data);
             if (requestCode == UPDATE_INSTALL_PERMISSION_REQUEST) {
-                if (AppSecurity.canInstallUpdates(this)) resumeUpdateInstallAfterPermission();
-                else {
-                    prefs.edit().remove("update_resume_after_permission").apply();
-                    Toast.makeText(this, "Install permission was not enabled. The downloaded APK was kept.", Toast.LENGTH_LONG).show();
-                }
+                prefs.edit().remove("update_resume_after_permission").apply();
             }
         }
 
