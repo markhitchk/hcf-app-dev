@@ -135,12 +135,21 @@ public final class HcfNotifications {
 
         static void start(Context context) {
             if (context == null || NotificationHelper.silencePassiveEnabled(context) || !hasSession(context)) return;
-            requestOneShotSync(context);
+            if (DistributionMode.legacySystem(context)) startWithAction(context, null);
+            else requestOneShotSync(context);
         }
 
         static void requestImmediateSync(Context context) {
             if (context == null || NotificationHelper.silencePassiveEnabled(context) || !hasSession(context)) return;
-            requestOneShotSync(context);
+            if (DistributionMode.legacySystem(context)) {
+                if (context instanceof InstantNotificationService) {
+                    ((InstantNotificationService) context).requestImmediateSyncLocal("service-context");
+                } else {
+                    startWithAction(context, ACTION_SYNC_NOW);
+                }
+            } else {
+                requestOneShotSync(context);
+            }
         }
 
         private void requestImmediateSyncLocal(String source) {
@@ -192,7 +201,20 @@ public final class HcfNotifications {
             if (NotificationHelper.silencePassiveEnabled(context)
                     || !prefs.getBoolean("background_notification_sync", true)
                     || !hasSession(context)) return;
-            requestOneShotSync(context);
+
+            if (!DistributionMode.legacySystem(context)) {
+                requestOneShotSync(context);
+                return;
+            }
+
+            try {
+                Intent intent = new Intent(context, InstantNotificationService.class);
+                if (action != null) intent.setAction(action);
+                if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent);
+                else context.startService(intent);
+            } catch (Throwable t) {
+                AppLogger.warn(context, "instant_notification_service", "legacy start blocked | " + t.getClass().getSimpleName());
+            }
         }
 
         static void stop(Context context) {
@@ -1295,21 +1317,35 @@ final class NotificationSyncScheduler {
         try {
             SharedPreferences prefs = context.getSharedPreferences("hcf_app", 0);
             if (!prefs.getBoolean("background_notification_sync", true)) {
+                HcfNotifications.InstantNotificationService.stop(context, "background-sync-disabled");
                 cancel(context);
                 AppLogger.info(context, "notification_sync_mode", "disabled");
                 return;
             }
+
             String userId = prefs.getString("session_user_id", "");
             boolean signedIn = userId != null && !userId.trim().isEmpty();
-            if (NotificationHelper.silencePassiveEnabled(context)) {
+            boolean silent = NotificationHelper.silencePassiveEnabled(context);
+
+            if (silent) {
+                HcfNotifications.InstantNotificationService.stop(context, "silent-alerts-silenced");
                 NotificationHelper.cancelOptionalSilentAlerts(context);
             }
             schedule(context);
-            if (signedIn && !NotificationHelper.silencePassiveEnabled(context)) {
-                HcfNotifications.InstantNotificationService.requestImmediateSync(context);
+
+            if (signedIn && !silent) {
+                if (DistributionMode.legacySystem(context)) {
+                    HcfNotifications.InstantNotificationService.start(context);
+                    AppLogger.info(context, "notification_sync_mode", "legacy foreground live sync + scheduled fallback");
+                } else {
+                    HcfNotifications.InstantNotificationService.requestImmediateSync(context);
+                    AppLogger.info(context, "notification_sync_mode", "scheduled jobs + one-shot sync • signed-in");
+                }
+            } else {
+                HcfNotifications.InstantNotificationService.stop(context, signedIn ? "silent-alerts-silenced" : "signed-out");
+                AppLogger.info(context, "notification_sync_mode",
+                        signedIn ? "scheduled jobs only • silent alerts" : "scheduled jobs armed • waiting for session");
             }
-            AppLogger.info(context, "notification_sync_mode",
-                    signedIn ? "scheduled jobs + one-shot sync • signed-in" : "scheduled jobs armed • waiting for session");
         } catch (Throwable error) {
             AppLogger.error(context, "notification_sync_apply",
                     error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage()));

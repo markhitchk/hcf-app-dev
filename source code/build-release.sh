@@ -5,14 +5,19 @@ project_dir="$(cd "$(dirname "$0")" && pwd)"
 sdk_root="${ANDROID_SDK_ROOT:?Set ANDROID_SDK_ROOT}"
 build_tools="$sdk_root/build-tools/${BUILD_TOOLS_VERSION:-36.0.0}"
 android_jar="$sdk_root/platforms/android-${ANDROID_PLATFORM_VERSION:-36}/android.jar"
-manifest="$project_dir/AndroidManifest.xml"
+legacy_system="${HCF_LEGACY_SYSTEM:-0}"
+case "$legacy_system" in
+  0) manifest="$project_dir/AndroidManifest.xml" ;;
+  1) manifest="$project_dir/AndroidManifest.legacy.xml" ;;
+  *) echo "HCF_LEGACY_SYSTEM must be 0 (Google Play) or 1 (legacy/sideload)" >&2; exit 38 ;;
+esac
 build_info="$project_dir/src/com/harleytg/forum/HcfCore.java"
 ui_verifier="$project_dir/../.github/scripts/verify-hcf-alerts-ui.py"
 release_verifier="$project_dir/../.github/scripts/verify-release-readiness.py"
 onboarding_patcher="$project_dir/../.github/scripts/apply-onboarding-account.py"
 session_patcher="$project_dir/../.github/scripts/apply-onboarding-live-session.py"
 
-[[ -f "$manifest" ]] || { echo "Missing AndroidManifest.xml" >&2; exit 2; }
+[[ -f "$manifest" ]] || { echo "Missing selected Android manifest: $manifest" >&2; exit 2; }
 [[ -f "$build_info" ]] || { echo "Missing HcfCore.java" >&2; exit 2; }
 [[ -f "$ui_verifier" ]] || { echo "Missing HCF Alerts UI verifier" >&2; exit 24; }
 [[ -f "$release_verifier" ]] || { echo "Missing release-readiness verifier" >&2; exit 25; }
@@ -58,7 +63,11 @@ case "$package_name" in
     ;;
 esac
 
-[[ "$output_name" == "$buildinfo_apk_name" ]] || { echo "BuildInfo APK filename mismatch" >&2; exit 23; }
+if [[ "$legacy_system" == "1" ]]; then
+  output_name="${output_name%.apk}-Legacy.apk"
+else
+  [[ "$output_name" == "$buildinfo_apk_name" ]] || { echo "BuildInfo APK filename mismatch" >&2; exit 23; }
+fi
 
 keystore_path="${HCF_KEYSTORE:?Set HCF_KEYSTORE to the channel signing JKS}"
 keystore_alias="${HCF_KEY_ALIAS:-$default_alias}"
@@ -230,5 +239,7 @@ output_apk="$output_dir/$output_name"
 [[ -f "$output_apk.idsig" ]] || { echo "Missing APK Signature Scheme v4 sidecar" >&2; exit 26; }
 "$build_tools/apksigner" verify --min-sdk-version 23 --verbose --print-certs "$output_apk"
 
-printf 'Built %s\nV4 sidecar: %s\nPackage: %s\nVersion name: %s\nVersion code: %s\nChannel: %s\nDiscord observation: encrypted build-time binding\n' \
-  "$output_apk" "$output_apk.idsig" "$package_name" "$version_name" "$version_code" "$channel"
+distribution_label="Google Play"
+[[ "$legacy_system" == "1" ]] && distribution_label="Legacy / sideload"
+printf 'Built %s\nV4 sidecar: %s\nPackage: %s\nVersion name: %s\nVersion code: %s\nChannel: %s\nDistribution: %s\nDiscord observation: encrypted build-time binding\n' \
+  "$output_apk" "$output_apk.idsig" "$package_name" "$version_name" "$version_code" "$channel" "$distribution_label"

@@ -85,3 +85,17 @@ The current dev build uses a backend-free manual moderation design:
 The release workflow requires a GitHub Actions repository secret named `DISCORD_WEBHOOK_URL`. It generates `HcfDiscordSecret.java` only inside the temporary Actions checkout, AES-encrypts the webhook value for the APK, and checks that the plaintext Discord webhook URL is not present in DEX strings. The generated file is ignored by Git and must never be committed.
 
 APK-side encryption is an obfuscation layer rather than a trusted secret store because the app must be able to decrypt its own webhook credential. Rotate the webhook if it is exposed. Do not put the webhook, passwords, cookies, auth tokens, GitHub tokens, or service-account credentials in source or public configuration.
+
+
+## Google Play and legacy/sideload builds
+
+The `dev` branch supports two distribution modes:
+
+- **Google Play (default):** uses `source code/AndroidManifest.xml`, scheduled
+  notification sync, and Google Play for app installation and updates.
+- **Legacy / sideload:** build with `HCF_LEGACY_SYSTEM=1` to use
+  `source code/AndroidManifest.legacy.xml`. This retains the historical
+  foreground live-notification service, direct battery-exemption request, and
+  verified APK updater.
+
+Legacy builds receive a `-Legacy.apk` suffix. Do not upload a Legacy APK to Google Play.
