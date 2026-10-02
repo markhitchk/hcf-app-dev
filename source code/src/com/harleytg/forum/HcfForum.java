@@ -2569,34 +2569,26 @@ public final class HcfForum {
 
         /* JADX INFO: Access modifiers changed from: private */
         public void showFirstRunPermissionSetup() {
-            if (isFinishing() || isDestroyed()) {
-                return;
-            }
-            boolean z = Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != 0;
-            boolean z2 = !AppSecurity.canInstallUpdates(this);
-            if (!z && !z2) {
+            if (isFinishing() || isDestroyed()) return;
+            boolean needsNotifications = Build.VERSION.SDK_INT >= 33
+                    && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != 0;
+            if (!needsNotifications) {
                 this.prefs.edit().putBoolean("permission_onboarding_done", true).apply();
                 return;
             }
-            StringBuilder sb = new StringBuilder("Harley's Clan Forum only asks for permissions it actually uses.\n\n");
-            if (z) {
-                sb.append("• Notifications — forum alerts and update status.\n");
-            }
-            if (z2) {
-                sb.append("• Install app updates — lets Android install verified HCF update APKs after you confirm.\n");
-            }
-            sb.append("\nThe app does not request location, contacts, microphone, or camera access.");
-            new AlertDialog.Builder(this).setTitle("Set up app permissions").setMessage(sb.toString()).setPositiveButton("Continue", new DialogInterface.OnClickListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda75
-                @Override // android.content.DialogInterface.OnClickListener
-                public final void onClick(DialogInterface dialogInterface, int i) {
-                    MainActivity.this.m97x29893c96(dialogInterface, i);
-                }
-            }).setNegativeButton("Not now", new DialogInterface.OnClickListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda76
-                @Override // android.content.DialogInterface.OnClickListener
-                public final void onClick(DialogInterface dialogInterface, int i) {
-                    MainActivity.this.m98x3d311017(dialogInterface, i);
-                }
-            }).show();
+            new AlertDialog.Builder(this)
+                    .setTitle("Set up app permissions")
+                    .setMessage("Harley's Clan Forum uses notification permission for forum alerts and update status. The Google Play build does not request package-install or battery-optimization exemption permissions.")
+                    .setPositiveButton("Continue", new DialogInterface.OnClickListener() {
+                        @Override public void onClick(DialogInterface dialogInterface, int i) {
+                            MainActivity.this.m97x29893c96(dialogInterface, i);
+                        }
+                    })
+                    .setNegativeButton("Not now", new DialogInterface.OnClickListener() {
+                        @Override public void onClick(DialogInterface dialogInterface, int i) {
+                            MainActivity.this.m98x3d311017(dialogInterface, i);
+                        }
+                    }).show();
         }
 
         /* renamed from: lambda$showFirstRunPermissionSetup$51$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
@@ -2620,31 +2612,17 @@ public final class HcfForum {
         }
 
         private void requestUpdateInstallPermissionIfNeeded() {
-            if (AppSecurity.canInstallUpdates(this)) {
-                this.prefs.edit().putBoolean("permission_onboarding_done", true).apply();
-            } else {
-                new AlertDialog.Builder(this).setTitle("Allow secure app updates").setMessage("Android requires special approval before this app can open downloaded update APKs. Updates are limited to the trusted HCF release source and are verified for package name, newer version, and matching signing certificate before installation.").setPositiveButton("Open Android settings", new DialogInterface.OnClickListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda6
-                    @Override // android.content.DialogInterface.OnClickListener
-                    public final void onClick(DialogInterface dialogInterface, int i) {
-                        MainActivity.this.m81xaecf68f0(dialogInterface, i);
-                    }
-                }).setNegativeButton("Later", new DialogInterface.OnClickListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda7
-                    @Override // android.content.DialogInterface.OnClickListener
-                    public final void onClick(DialogInterface dialogInterface, int i) {
-                        MainActivity.this.m82xc2773c71(dialogInterface, i);
-                    }
-                }).show();
-            }
+            this.prefs.edit()
+                    .putBoolean("permission_onboarding_done", true)
+                    .putBoolean("update_auto_download", false)
+                    .putBoolean("update_auto_install", false)
+                    .remove("update_resume_after_permission")
+                    .apply();
         }
 
         /* renamed from: lambda$requestUpdateInstallPermissionIfNeeded$53$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
         /* synthetic */ void m81xaecf68f0(DialogInterface dialogInterface, int i) {
-            this.prefs.edit().putBoolean("install_permission_prompted", true).putBoolean("permission_onboarding_done", true).apply();
-            try {
-                startActivityForResult(new Intent("android.settings.MANAGE_UNKNOWN_APP_SOURCES", Uri.parse("package:" + getPackageName())), UPDATE_INSTALL_PERMISSION_REQUEST);
-            } catch (Throwable th) {
-                AppLogger.error(this, "install_permission", th.getClass().getSimpleName());
-            }
+            startNativeUpdateFlow();
         }
 
         /* renamed from: lambda$requestUpdateInstallPermissionIfNeeded$54$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
@@ -2673,7 +2651,7 @@ public final class HcfForum {
             if (release == null || isFinishing() || isDestroyed()) {
                 return;
             }
-            new AlertDialog.Builder(this).setTitle("Beta Update Available").setMessage("An updated Harley's Clan Forum development APK is ready.\n\nInstalled: v1.0 (" + BuildInfo.VERSION_CODE + ")\nAvailable: v" + UpdateChecker.displayVersion(release) + " (" + (release.versionCode > 0 ? Long.toString(release.versionCode) : "Checking build code") + ")\nReason: " + UpdateChecker.updateReason(release) + "\n\nChannel: Development / Beta\nUpdate when you're ready to test the latest build.").setNegativeButton("Later", (DialogInterface.OnClickListener) null).setPositiveButton("Update Now", new DialogInterface.OnClickListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda12
+            new AlertDialog.Builder(this).setTitle("Beta Update Available").setMessage("An updated Harley's Clan Forum development build is available through Google Play.\n\nInstalled: v1.0 (" + BuildInfo.VERSION_CODE + ")\nAvailable: v" + UpdateChecker.displayVersion(release) + " (" + (release.versionCode > 0 ? Long.toString(release.versionCode) : "Checking build code") + ")\nReason: " + UpdateChecker.updateReason(release) + "\n\nChannel: Development / Beta\nUpdate when you're ready to test the latest build.").setNegativeButton("Later", (DialogInterface.OnClickListener) null).setPositiveButton("Update Now", new DialogInterface.OnClickListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda12
                 @Override // android.content.DialogInterface.OnClickListener
                 public final void onClick(DialogInterface dialogInterface, int i) {
                     MainActivity.this.m86xf46525d5(dialogInterface, i);
@@ -2688,88 +2666,29 @@ public final class HcfForum {
 
         /* JADX INFO: Access modifiers changed from: private */
         public void startNativeUpdateFlow() {
-            if (this.nativeUpdateFlowActive || isFinishing() || isDestroyed()) {
-                return;
-            }
-            this.nativeUpdateFlowActive = true;
-            long downloadedId = AppUpdateDownloader.downloadedId(this);
-            if (downloadedId > 0) {
-                this.nativeUpdateDownloadId = downloadedId;
-                AppSecurity.ApkVerification verifyDownloadedUpdate = AppSecurity.verifyDownloadedUpdate(this, downloadedId);
-                if (verifyDownloadedUpdate.ok) {
-                    continueInstallAfterVerification(downloadedId, verifyDownloadedUpdate.message);
-                    return;
+            if (isFinishing() || isDestroyed()) return;
+            this.nativeUpdateFlowActive = false;
+            this.nativeUpdateDownloadId = -1L;
+            this.prefs.edit()
+                    .putBoolean("update_auto_download", false)
+                    .putBoolean("update_auto_install", false)
+                    .remove("update_resume_after_permission")
+                    .apply();
+            try {
+                Intent market = new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("market://details?id=" + getPackageName()));
+                startActivity(market);
+                AppLogger.info(this, "update_route", "google-play-market");
+            } catch (Throwable first) {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://play.google.com/store/apps/details?id=" + getPackageName())));
+                    AppLogger.info(this, "update_route", "google-play-web");
+                } catch (Throwable second) {
+                    Toast.makeText(this, "Google Play could not be opened on this device.", Toast.LENGTH_LONG).show();
+                    AppLogger.warn(this, "update_route", second.getClass().getSimpleName());
                 }
             }
-            final TextView textView = new TextView(this);
-            textView.setText("Checking Development / Beta updates…");
-            textView.setTextColor(getColor(R.color.hcf_text));
-            textView.setTextSize(14.0f);
-            int dp = dp(20);
-            textView.setPadding(dp, dp, dp, dp);
-            AlertDialog create = new AlertDialog.Builder(this).setTitle("Harley's Clan Forum Update").setView(textView).setNegativeButton("Cancel", new DialogInterface.OnClickListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda1
-                @Override // android.content.DialogInterface.OnClickListener
-                public final void onClick(DialogInterface dialogInterface, int i) {
-                    MainActivity.this.m109x6d485c01(dialogInterface, i);
-                }
-            }).create();
-            this.nativeUpdateDialog = create;
-            create.setOnDismissListener(new DialogInterface.OnDismissListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda2
-                @Override // android.content.DialogInterface.OnDismissListener
-                public final void onDismiss(DialogInterface dialogInterface) {
-                    MainActivity.this.m110x80f02f82(dialogInterface);
-                }
-            });
-            this.nativeUpdateDialog.show();
-            UpdateChecker.check(this, "dev", new UpdateChecker.Callback() { // from class: com.harleytg.forum.dev.MainActivity.4
-                @Override // com.harleytg.forum.dev.UpdateChecker.Callback
-                public void onResult(UpdateChecker.Release release, boolean z) {
-                    String str;
-                    if (MainActivity.this.isFinishing() || MainActivity.this.isDestroyed()) {
-                        return;
-                    }
-                    if (!z) {
-                        if (UpdateChecker.compareReleaseToInstalled(release) < 0) {
-                            TextView textView2 = textView;
-                            StringBuilder sb = new StringBuilder("Installed build 1.0 (" + BuildInfo.VERSION_CODE + ") is newer than the Development / Beta feed");
-                            if (release.versionCode > 0) {
-                                str = " (" + release.versionCode + ")";
-                            } else {
-                                str = "";
-                            }
-                            sb.append(str);
-                            sb.append(". No downgrade will be installed.");
-                            textView2.setText(sb.toString());
-                        } else {
-                            textView.setText("You're on the newest Development / Beta build.\n\nInstalled: v1.0 (" + BuildInfo.VERSION_CODE + ")");
-                        }
-                        MainActivity.this.nativeUpdateFlowActive = false;
-                        return;
-                    }
-                    if (release.apkUrl == null || release.apkUrl.trim().isEmpty()) {
-                        textView.setText("A newer Development / Beta build is published, but the release does not contain an installable APK.");
-                        MainActivity.this.nativeUpdateFlowActive = false;
-                        return;
-                    }
-                    long enqueue = AppUpdateDownloader.enqueue(MainActivity.this, release, true);
-                    if (enqueue > 0) {
-                        MainActivity.this.nativeUpdateDownloadId = enqueue;
-                        MainActivity.this.showNativeUpdateDownload(release, enqueue);
-                    } else {
-                        textView.setText("The update could not be downloaded. Check your connection and try again.");
-                        MainActivity.this.nativeUpdateFlowActive = false;
-                    }
-                }
-
-                @Override // com.harleytg.forum.dev.UpdateChecker.Callback
-                public void onError(String str) {
-                    TextView textView2 = textView;
-                    if (textView2 != null) {
-                        textView2.setText("Unable to check for updates.\n\n" + str);
-                    }
-                    MainActivity.this.nativeUpdateFlowActive = false;
-                }
-            });
         }
 
         /* renamed from: lambda$startNativeUpdateFlow$56$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
@@ -2912,49 +2831,15 @@ public final class HcfForum {
         }
 
         private void continueInstallAfterVerification(long j, String str) {
-            AlertDialog alertDialog;
-            this.nativeUpdateDownloadId = j;
-            if (!AppSecurity.canInstallUpdates(this)) {
-                this.prefs.edit().putBoolean("update_resume_after_permission", true).apply();
-                new AlertDialog.Builder(this).setTitle("Allow Harley's Clan Forum to install updates").setMessage("The APK is fully downloaded and verified. Android needs permission for this app to open its update installer. The update will not be downloaded again.\n\n" + str).setPositiveButton("Open Android settings", new DialogInterface.OnClickListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda24
-                    @Override // android.content.DialogInterface.OnClickListener
-                    public final void onClick(DialogInterface dialogInterface, int i) {
-                        MainActivity.this.m72x9fdda4ad(dialogInterface, i);
-                    }
-                }).setNegativeButton("Later", new DialogInterface.OnClickListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda25
-                    @Override // android.content.DialogInterface.OnClickListener
-                    public final void onClick(DialogInterface dialogInterface, int i) {
-                        MainActivity.this.m73xb385782e(dialogInterface, i);
-                    }
-                }).show();
-                return;
-            }
-            boolean openInstaller = AppUpdateDownloader.openInstaller(this, j);
-            AppLogger.info(this, "native_install_route", openInstaller ? "installer-opened" : "installer-open-failed");
-            if (!openInstaller) {
-                ErrorSystem.AppError installerOpenFailure = ErrorSystem.installerOpenFailure("Package installer activity was unavailable or rejected the install intent.");
-                new AlertDialog.Builder(this).setTitle(installerOpenFailure.code + " • " + installerOpenFailure.title).setMessage(installerOpenFailure.message).setPositiveButton("OK", (DialogInterface.OnClickListener) null).show();
-                AppLogger.error(this, "native_install_route", installerOpenFailure.code + " | " + installerOpenFailure.technical);
-            }
             this.nativeUpdateFlowActive = false;
-            if (!openInstaller || (alertDialog = this.nativeUpdateDialog) == null) {
-                return;
-            }
-            try {
-                alertDialog.dismiss();
-            } catch (Throwable unused) {
-            }
+            this.nativeUpdateDownloadId = -1L;
+            this.prefs.edit().remove("update_resume_after_permission").apply();
+            startNativeUpdateFlow();
         }
 
         /* renamed from: lambda$continueInstallAfterVerification$60$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
         /* synthetic */ void m72x9fdda4ad(DialogInterface dialogInterface, int i) {
-            try {
-                startActivityForResult(new Intent("android.settings.MANAGE_UNKNOWN_APP_SOURCES", Uri.parse("package:" + getPackageName())), UPDATE_INSTALL_PERMISSION_REQUEST);
-            } catch (Throwable th) {
-                this.prefs.edit().remove("update_resume_after_permission").apply();
-                this.nativeUpdateFlowActive = false;
-                AppLogger.error(this, "install_permission", th.getClass().getSimpleName());
-            }
+            startNativeUpdateFlow();
         }
 
         /* renamed from: lambda$continueInstallAfterVerification$61$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
@@ -4210,16 +4095,8 @@ public final class HcfForum {
         }
 
         private void resumeUpdateInstallPermissionIfNeeded() {
-            SharedPreferences sharedPreferences = this.prefs;
-            if (sharedPreferences != null && sharedPreferences.getBoolean("update_resume_after_permission", false) && AppSecurity.canInstallUpdates(this)) {
+            if (this.prefs != null) {
                 this.prefs.edit().remove("update_resume_after_permission").apply();
-                long j = this.nativeUpdateDownloadId;
-                if (j <= 0) {
-                    j = AppUpdateDownloader.downloadedId(this);
-                }
-                if (j > 0) {
-                    continueInstallAfterVerification(j, "Install permission enabled • downloaded update remains verified.");
-                }
             }
         }
 
@@ -4381,16 +4258,8 @@ public final class HcfForum {
         protected void onActivityResult(int requestCode, int resultCode, Intent data) {
             super.onActivityResult(requestCode, resultCode, data);
             if (requestCode == UPDATE_INSTALL_PERMISSION_REQUEST) {
-                boolean allowed = AppSecurity.canInstallUpdates(this);
-                AppLogger.info(this, "install_permission", allowed ? "allowed" : "not-allowed");
                 prefs.edit().remove(AppPrefs.UPDATE_RESUME_AFTER_PERMISSION).apply();
-                Toast.makeText(this, allowed ? "Secure app updates are enabled." : "Update installation permission was not enabled.", Toast.LENGTH_SHORT).show();
-                if (allowed) {
-                    long ready = nativeUpdateDownloadId > 0L ? nativeUpdateDownloadId : AppUpdateDownloader.downloadedId(this);
-                    if (ready > 0L) continueInstallAfterVerification(ready, "Previously downloaded update verified.");
-                } else {
-                    nativeUpdateFlowActive = false;
-                }
+                nativeUpdateFlowActive = false;
                 return;
             }
             if (requestCode != FILE_CHOOSER_REQUEST || filePathCallback == null) return;
@@ -5590,7 +5459,7 @@ public final class HcfForum {
             LinearLayout card = settingsCard();
             card.addView(sectionTitle(
                     "Android Integration",
-                    "Recommended setup items for alerts, links and verified app updates"
+                    "Recommended setup items for alerts, links and Google Play updates"
             ));
 
             notificationStatus = statusBadge();
@@ -5621,12 +5490,12 @@ public final class HcfForum {
 
             updateStatus = statusBadge();
             updateDetail = detailText();
-            updateAction = actionButton("Allow Secure Updates   ›");
+            updateAction = actionButton("Open Google Play   ›");
             updateAction.setOnClickListener(
                     v -> SetupCenter.openInstallSourceSettings(this, REQUEST_INSTALL_SOURCE)
             );
             card.addView(integrationBlock(
-                    "Secure App Updates",
+                    "App Updates",
                     R.drawable.fa_shield,
                     updateStatus,
                     updateDetail,
@@ -5673,7 +5542,7 @@ public final class HcfForum {
 
             TextView securityNote = text(
                     "HCF does not request location, contacts, microphone, camera, or broad storage access. "
-                            + "Update APKs remain restricted to the trusted HCF release source and are verified before installation.",
+                            + "App updates are installed through Google Play; HCF does not request permission to install APKs from this source.",
                     11,
                     getColor(R.color.hcf_muted)
             );
@@ -5964,21 +5833,12 @@ public final class HcfForum {
             );
             linksAction.setVisibility(View.VISIBLE);
 
-            boolean canInstall = AppSecurity.canInstallUpdates(this);
-            setStatus(
-                    updateStatus,
-                    canInstall ? "✓ Allowed" : "! Permission required",
-                    canInstall
-            );
+            setStatus(updateStatus, "✓ Google Play", true);
             updateDetail.setText(
-                    canInstall
-                            ? "Android allows HCF to hand verified update APKs to the package installer. "
-                            + "HCF's package, version/revision and signing-certificate checks remain enforced."
-                            : "Android requires per-app approval before HCF can open a verified update APK. "
-                            + "This does not weaken HCF's trusted-source, package, version/revision or "
-                            + "signing-certificate verification."
+                    "App updates are managed by Google Play. HCF does not request permission to install APKs from this source."
             );
-            updateAction.setVisibility(canInstall ? View.GONE : View.VISIBLE);
+            updateAction.setText("Open Google Play");
+            updateAction.setVisibility(View.VISIBLE);
 
             boolean backgroundSync = prefs.getBoolean(AppPrefs.BACKGROUND_NOTIFICATION_SYNC, true);
             String lastSync = prefs.getString(AppPrefs.NOTIFICATION_LAST_SYNC_STATUS, "");
@@ -6763,17 +6623,15 @@ final class SetupCenter {
     static void openInstallSourceSettings(Activity activity, int requestCode) {
         if (activity == null) return;
         try {
-            Intent intent = new Intent("android.settings.MANAGE_UNKNOWN_APP_SOURCES",
-                    Uri.parse("package:" + activity.getPackageName()));
-            activity.startActivityForResult(intent, requestCode);
-            AppLogger.info(activity, "install_permission", "setup_center_open");
+            activity.startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse("market://details?id=" + activity.getPackageName())));
+            AppLogger.info(activity, "update_route", "setup-center-google-play");
         } catch (Throwable first) {
             try {
-                Intent fallback = new Intent("android.settings.APPLICATION_DETAILS_SETTINGS",
-                        Uri.parse("package:" + activity.getPackageName()));
-                activity.startActivityForResult(fallback, requestCode);
+                activity.startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://play.google.com/store/apps/details?id=" + activity.getPackageName())));
             } catch (Throwable second) {
-                AppLogger.error(activity, "install_permission", second.getClass().getSimpleName());
+                AppLogger.error(activity, "update_route", second.getClass().getSimpleName());
             }
         }
     }

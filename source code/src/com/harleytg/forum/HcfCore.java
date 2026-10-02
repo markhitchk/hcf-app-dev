@@ -325,7 +325,7 @@ final class BuildInfo {
     static final String BUILD_TAG = "Beta / Development Build";
     static final String CHANNEL = "Dev";
     static final String DEFAULT_UPDATE_CHANNEL = "dev";
-    static final String DEVELOPMENT_BUILD_LABEL = "v1.2 (100000106) • " + BUILD_TAG;
+    static final String DEVELOPMENT_BUILD_LABEL = "v1.2 (100000129) • " + BUILD_TAG;
     static final boolean ENABLE_DEV_TEST_MENU = true;
     static final boolean FCM_CONFIGURED = false;
     static final boolean FIREBASE_WEB_CONFIG_BUNDLED = true;
@@ -337,9 +337,9 @@ final class BuildInfo {
     static final String UPDATE_DEV_BRANCH = "dev";
     static final String UPDATE_REPOSITORY = "harleytg-studios/hcf-app";
     static final String UPDATE_STABLE_BRANCH = "stable";
-    static final String USER_AGENT_MARKER = "HarleysClanForumApp/1.2 Build/100000106";
+    static final String USER_AGENT_MARKER = "HarleysClanForumApp/1.2 Build/100000129";
     static final String VERSION = "1.2";
-    static final int VERSION_CODE = 100000106;
+    static final int VERSION_CODE = 100000129;
     static final String VERSION_BUILD_LINE = "v" + VERSION + " (" + VERSION_CODE + ") • " + BUILD_TAG;
     static final String VERSION_CODE_SCHEME = "dev-version-v1";
     static final String VERSION_TAG = "v1.2";
@@ -740,42 +740,16 @@ final class BatteryOptimizationHelper {
     }
 
     static void maybeRequest(Activity activity) {
-        if (activity == null || Build.VERSION.SDK_INT < 23) {
-            return;
-        }
+        if (activity == null || Build.VERSION.SDK_INT < 23) return;
         SharedPreferences prefs = activity.getSharedPreferences(AppPrefs.FILE, Context.MODE_PRIVATE);
-        if (!prefs.getBoolean("aggressive_realtime", true)) {
-            return;
-        }
-
-        if (isIgnoring(activity)) {
-            prefs.edit()
-                    .putBoolean(PREF_DENIED, false)
-                    .putBoolean(PREF_WARNING_LOGGED, false)
-                    .apply();
-            return;
-        }
-
+        // Google Play builds do not request direct Doze exemption. Android can manage
+        // battery policy from the normal app settings screen without a restricted permission.
         if (!prefs.getBoolean(PREF_REQUEST_SHOWN, false)) {
-            prefs.edit().putBoolean(PREF_REQUEST_SHOWN, true).apply();
-            try {
-                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                intent.setData(Uri.parse("package:" + activity.getPackageName()));
-                activity.startActivity(intent);
-                AppLogger.info(activity, "battery_optimization_request", "requested • aggressive realtime");
-            } catch (Throwable error) {
-                prefs.edit().putBoolean(PREF_DENIED, true).apply();
-                AppLogger.warn(activity, "battery_optimization_request", "unavailable | " + error.getClass().getSimpleName());
-            }
-            return;
-        }
-
-        // A prior request was shown and the app is still optimized: treat it as
-        // denied/revoked and use the slightly less aggressive (still <=5s) path.
-        prefs.edit().putBoolean(PREF_DENIED, true).apply();
-        if (!prefs.getBoolean(PREF_WARNING_LOGGED, false)) {
-            prefs.edit().putBoolean(PREF_WARNING_LOGGED, true).apply();
-            AppLogger.warn(activity, "battery_optimization", "not exempt • using conservative realtime background intervals");
+            prefs.edit()
+                    .putBoolean(PREF_REQUEST_SHOWN, true)
+                    .putBoolean(PREF_DENIED, !isIgnoring(activity))
+                    .apply();
+            AppLogger.info(activity, "battery_optimization", "Play policy mode • no direct exemption request");
         }
     }
 
@@ -1702,14 +1676,8 @@ final class AppSecurity {
     }
 
     static boolean canInstallUpdates(Context context) {
-        if (context == null) {
-            return true;
-        }
-        try {
-            return context.getPackageManager().canRequestPackageInstalls();
-        } catch (Throwable unused) {
-            return false;
-        }
+        // Direct APK installation is disabled in Google Play builds.
+        return false;
     }
 
     static boolean isTrustedReleaseDownload(String str) {
@@ -1793,7 +1761,7 @@ final class AppSecurity {
     }
 
     static String securitySummary(Context context) {
-        return "HTTPS only • SSL errors blocked • mixed HTTP blocked\nThird-party cookies blocked • file URL access blocked\nWebView debugging off • app backup disabled\nUpdate APK signature verification on • installer permission: ".concat(canInstallUpdates(context) ? "Allowed" : "Needs approval");
+        return "HTTPS only • SSL errors blocked • mixed HTTP blocked\nThird-party cookies blocked • file URL access blocked\nWebView debugging off • app backup disabled\nApp updates: managed by Google Play";
     }
 
     private static boolean signaturesCompatible(PackageInfo installed, PackageInfo candidate) throws Exception {
@@ -2144,7 +2112,13 @@ final class UiPreferences {
         if (i >= CURRENT_REVAMP) {
             return;
         }
-        sharedPreferences.edit().putBoolean("update_auto_download", false).putBoolean("show_url_bar", true).putInt("ui_revamp_version", CURRENT_REVAMP).apply();
+        sharedPreferences.edit()
+                .putBoolean("update_auto_download", false)
+                .putBoolean("update_auto_install", false)
+                .remove("update_resume_after_permission")
+                .putBoolean("show_url_bar", true)
+                .putInt("ui_revamp_version", CURRENT_REVAMP)
+                .apply();
     }
 
     private static void sanitizePreferenceTypes(SharedPreferences sharedPreferences) {

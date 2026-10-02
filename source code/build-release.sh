@@ -3,8 +3,8 @@ set -euo pipefail
 
 project_dir="$(cd "$(dirname "$0")" && pwd)"
 sdk_root="${ANDROID_SDK_ROOT:?Set ANDROID_SDK_ROOT}"
-build_tools="$sdk_root/build-tools/${BUILD_TOOLS_VERSION:-35.0.0}"
-android_jar="$sdk_root/platforms/android-${ANDROID_PLATFORM_VERSION:-35}/android.jar"
+build_tools="$sdk_root/build-tools/${BUILD_TOOLS_VERSION:-36.0.0}"
+android_jar="$sdk_root/platforms/android-${ANDROID_PLATFORM_VERSION:-36}/android.jar"
 manifest="$project_dir/AndroidManifest.xml"
 build_info="$project_dir/src/com/harleytg/forum/HcfCore.java"
 ui_verifier="$project_dir/../.github/scripts/verify-hcf-alerts-ui.py"

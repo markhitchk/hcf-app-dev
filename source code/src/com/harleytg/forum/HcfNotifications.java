@@ -134,29 +134,13 @@ public final class HcfNotifications {
         }
 
         static void start(Context context) {
-            if (context == null) return;
-            if (NotificationHelper.silencePassiveEnabled(context)) {
-                stop(context, "silent-alerts-silenced");
-                return;
-            }
-            if (!hasSession(context)) {
-                stop(context, "no-session");
-                return;
-            }
-            startWithAction(context, null);
+            if (context == null || NotificationHelper.silencePassiveEnabled(context) || !hasSession(context)) return;
+            requestOneShotSync(context);
         }
 
         static void requestImmediateSync(Context context) {
             if (context == null || NotificationHelper.silencePassiveEnabled(context) || !hasSession(context)) return;
-            // Never call startForegroundService() again from the service itself. On Android 14
-            // (and some OEM builds) a self-restart can open a fresh foreground-service deadline
-            // and crash with ForegroundServiceDidNotStartInTimeException even though this
-            // service is already foregrounded.
-            if (context instanceof InstantNotificationService) {
-                ((InstantNotificationService) context).requestImmediateSyncLocal("service-context");
-                return;
-            }
-            startWithAction(context, ACTION_SYNC_NOW);
+            requestOneShotSync(context);
         }
 
         private void requestImmediateSyncLocal(String source) {
@@ -207,19 +191,8 @@ public final class HcfNotifications {
             SharedPreferences prefs = context.getSharedPreferences("hcf_app", 0);
             if (NotificationHelper.silencePassiveEnabled(context)
                     || !prefs.getBoolean("background_notification_sync", true)
-                    || !hasSession(context)) {
-                stop(context, NotificationHelper.silencePassiveEnabled(context)
-                        ? "silent-alerts-silenced" : "not-eligible");
-                return;
-            }
-            try {
-                Intent intent = new Intent(context, InstantNotificationService.class);
-                if (action != null) intent.setAction(action);
-                if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent);
-                else context.startService(intent);
-            } catch (Throwable t) {
-                AppLogger.warn(context, "instant_notification_service", "start-blocked | " + t.getClass().getSimpleName());
-            }
+                    || !hasSession(context)) return;
+            requestOneShotSync(context);
         }
 
         static void stop(Context context) {
@@ -262,28 +235,8 @@ public final class HcfNotifications {
         @Override
         public void onCreate() {
             super.onCreate();
-            if (NotificationHelper.silencePassiveEnabled(this)) {
-                running = false;
-                NotificationHelper.cancelOptionalSilentAlerts(this);
-                stopSelf();
-                return;
-            }
-            try {
-                NotificationHelper.createChannel(this);
-                Notification notification = NotificationHelper.buildInstantServiceNotification(this);
-                startForeground(SERVICE_NOTIFICATION_ID, notification);
-            } catch (Throwable t) {
-                AppLogger.error(this, "instant_notification_foreground", t.getClass().getSimpleName() + ": " + String.valueOf(t.getMessage()));
-                stopSelf();
-                return;
-            }
-
-            running = true;
-            failures = 0;
-            registerNetworkCallback();
-            registerScreenOnReceiver();
-            AppLogger.info(this, "instant_notification_service", "started • adaptive v" + BuildInfo.VERSION_CODE);
-            scheduleNext(0L);
+            running = false;
+            stopSelf();
         }
 
         @Override
@@ -1342,31 +1295,21 @@ final class NotificationSyncScheduler {
         try {
             SharedPreferences prefs = context.getSharedPreferences("hcf_app", 0);
             if (!prefs.getBoolean("background_notification_sync", true)) {
-                HcfNotifications.InstantNotificationService.stop(context, "background-sync-disabled");
                 cancel(context);
                 AppLogger.info(context, "notification_sync_mode", "disabled");
                 return;
             }
-
             String userId = prefs.getString("session_user_id", "");
             boolean signedIn = userId != null && !userId.trim().isEmpty();
             if (NotificationHelper.silencePassiveEnabled(context)) {
-                HcfNotifications.InstantNotificationService.stop(context, "silent-alerts-silenced");
                 NotificationHelper.cancelOptionalSilentAlerts(context);
-                schedule(context);
-                AppLogger.info(context, "notification_sync_mode",
-                        signedIn ? "scheduled jobs only • HCF Silent Alerts silenced" : "scheduled jobs armed • waiting for session");
-                return;
-            }
-
-            if (signedIn) {
-                HcfNotifications.InstantNotificationService.start(context);
-                AppLogger.info(context, "notification_sync_mode", "foreground live sync • signed-in");
-            } else {
-                HcfNotifications.InstantNotificationService.stop(context, "signed-out");
-                AppLogger.info(context, "notification_sync_mode", "waiting for signed-in session");
             }
             schedule(context);
+            if (signedIn && !NotificationHelper.silencePassiveEnabled(context)) {
+                HcfNotifications.InstantNotificationService.requestImmediateSync(context);
+            }
+            AppLogger.info(context, "notification_sync_mode",
+                    signedIn ? "scheduled jobs + one-shot sync • signed-in" : "scheduled jobs armed • waiting for session");
         } catch (Throwable error) {
             AppLogger.error(context, "notification_sync_apply",
                     error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage()));

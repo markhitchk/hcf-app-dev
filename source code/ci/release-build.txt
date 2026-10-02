@@ -1,2 +1,2 @@
 Current manual release build: v1.2
-Version code: 100000106
+Version code: 100000129

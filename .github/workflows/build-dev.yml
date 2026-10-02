@@ -237,7 +237,7 @@ jobs:
         run: |
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
 
       - name: Install Kotlin compiler
         shell: bash
@@ -261,8 +261,8 @@ jobs:
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/source code"
-          BT="$ANDROID_HOME/build-tools/35.0.0"
-          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-36/android.jar"
           WORK="$RUNNER_TEMP/hcf-beta-${HCF_VERSION_TAG}"
           OUT="$GITHUB_WORKSPACE/out-${HCF_VERSION_TAG}"
           ZXING_VERSION="3.5.3"

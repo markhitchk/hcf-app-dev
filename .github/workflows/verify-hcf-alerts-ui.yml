@@ -34,15 +34,15 @@ jobs:
         run: |
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
 
       - name: Compile and inspect direct Dev source
         shell: bash
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/source code"
-          BT="$ANDROID_HOME/build-tools/35.0.0"
-          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-36/android.jar"
           WORK="$RUNNER_TEMP/hcf-approved-alerts"
           OUT="$GITHUB_WORKSPACE/out-approved-alerts"
           VERSION_CODE="$(sed -n 's/.*android:versionCode="\([^"]*\)".*/\1/p' "$ROOT/AndroidManifest.xml" | head -1)"

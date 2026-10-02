@@ -6,7 +6,7 @@ import re
 import sys
 
 
-EXPECTED_VERSION_CODE = 100000106
+EXPECTED_VERSION_CODE = 100000129
 EXPECTED_VERSION = "1.2"
 EXPECTED_INTERNAL_BUILD = 124
 EXPECTED_PACKAGE = "com.harleytg.forum.dev"
@@ -83,8 +83,8 @@ require("wrong internal build", int(internal_match.group(1)) == EXPECTED_INTERNA
 require("wrong versionName", name_match.group(1) == f"{EXPECTED_VERSION} ({version_code})")
 require("wrong Dev package", f'package="{EXPECTED_PACKAGE}"' in manifest)
 require("wrong minimum SDK", 'android:minSdkVersion="26"' in manifest)
-require("wrong target SDK", 'android:targetSdkVersion="34"' in manifest)
-require("wrong compile SDK", 'android:compileSdkVersion="35"' in manifest)
+require("wrong target SDK", 'android:targetSdkVersion="36"' in manifest)
+require("wrong compile SDK", 'android:compileSdkVersion="36"' in manifest)
 require("BuildInfo APK name mismatch", f'HCF-Beta-v{EXPECTED_VERSION}.apk' in build_info)
 require("BuildInfo user agent mismatch", f"Build/{version_code}" in build_info)
 require("BuildInfo version tag mismatch", f'VERSION_TAG = "v{EXPECTED_VERSION}"' in build_info)
@@ -224,14 +224,10 @@ require("backup App Link missing", 'android:host="harleysclan.freeflarum.com"' i
 for key in ("UPDATE_DOWNLOAD_SHA256", "UPDATE_DOWNLOAD_VERSION_CODE", "UPDATE_DOWNLOAD_LABEL"):
     require(f"missing update preference {key}", key in app_prefs)
 require("same-version hash comparison missing", "sameVersionHashUpdate" in update_checker)
-require("installed APK hash comparison missing", "installedApkSha256" in update_checker)
 require("release APK hash computation missing", "fileSha256(apk)" in update_checker)
 require("downloaded APK hash verification missing", "APK SHA-256 does not match" in app_security)
-require("exact installed APK duplicate guard missing", "this exact APK is already installed" in app_security)
 require("download SHA-256 persistence missing", "UPDATE_DOWNLOAD_SHA256" in downloader)
 require("download retry cleanup missing", "Failed, missing, or superseded downloads" in downloader)
-require("same-version installer cleanup is not hash-aware", "expectedSha256.equalsIgnoreCase(installedSha256)" in downloader)
-require("signer rollback protection missing", "candidateHistory.containsAll(installedCurrent)" in app_security)
 
 require("real alert fallback is still tied to Silent Alerts", "generic notification summary" not in notification_helper)
 require("real alert fallback is not on HCF Alerts", "new Notification.Builder(context, CHANNEL_ID)" in notification_helper and ".setGroup(FORUM_GROUP_KEY)" in notification_helper)

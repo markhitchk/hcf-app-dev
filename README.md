@@ -12,10 +12,10 @@ Development/Beta branch for the Harley's Clan Forum Android app.
 - Channel label: `Beta / Development Build`
 - Version tag: `v1.1-hf2-a1`
 - Patch: `Hotfix-2`
-- Version code: `100000106`
+- Version code: `100000129`
 - Internal build: `124`
 - Minimum SDK: `26`
-- Target SDK: `34`
+- Target SDK: `36`
 - Source directory: [`source code/`](./source%20code)
 
 ## Dev version system

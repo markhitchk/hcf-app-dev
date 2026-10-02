@@ -690,17 +690,16 @@ public final class HcfUI {
                 }
 
                 started = beginStage(token, ++step, "Checking Android integration",
-                        "Verifying forum links and secure APK installer permission state.");
+                        "Verifying forum links and Google Play update routing.");
                 SetupCenter.ForumLinksState links = SetupCenter.forumLinksState(this);
-                boolean canInstallUpdates = AppSecurity.canInstallUpdates(this);
                 String integrationDetail = (links != null && links.ready
                         ? "Forum links verified" : "Forum links are managed by Android")
-                        + " • installer " + (canInstallUpdates ? "ready" : "permission not granted") + ".";
+                        + " • updates managed by Google Play.";
                 if (!completeStage(token, W_INTEGRATION, started, integrationDetail,
                         "Android • links " + (links != null && links.ready ? "ready" : "managed"))) return;
 
                 started = beginStage(token, ++step, "Starting notification systems",
-                        "Checking HCF notification channels, foreground sync and the safety-net schedule.");
+                        "Checking HCF notification channels, scheduled sync and the safety-net schedule.");
                 try {
                     NotificationHelper.refreshChannels(this);
                     NotificationSyncScheduler.apply(this);
@@ -716,12 +715,12 @@ public final class HcfUI {
 
                 if (!quickPath) {
                     started = beginStage(token, ++step, "Checking update system",
-                            "Applying the update schedule and cleaning same-version downloaded update state.");
+                            "Applying the Google Play update schedule and clearing stale legacy download state.");
                     try {
                         UpdateScheduler.apply(this);
                         AppUpdateDownloader.cleanupIfCurrentVersionWasDownloaded(this);
                         if (!completeStage(token, W_UPDATES, started,
-                                "Update scheduler and same-version cleanup completed.",
+                                "Google Play update schedule and legacy cleanup completed.",
                                 "Updates • ready")) return;
                     } catch (Throwable updateError) {
                         AppLogger.warn(this, "startup_updates", updateError.getClass().getSimpleName());
@@ -4682,16 +4681,14 @@ final class HcfSubActivities {
                 new SettingTarget("forum_link_settings", "Open Forum Link Settings", "android links domains primary backup", "forum_data", "connection_routing"),
                 new SettingTarget("cookie_manager", "Open Cookie Manager", "cookies site data privacy", "forum_data", "cookies_site_data"),
                 new SettingTarget("clear_site_data", "Clear Forum Site Data & Sign Out", "cookies cache data sign out privacy", "forum_data", "cookies_site_data"),
-                new SettingTarget("permission_status", "Android permission status", "permission security status foreground service boot network", "advanced", "permissions_security"),
+                new SettingTarget("permission_status", "Android permission status", "permission security status notifications background network", "advanced", "permissions_security"),
                 new SettingTarget("notification_permission", "Notification permission", "permission security notifications android alerts", "advanced", "permissions_security"),
-                new SettingTarget("background_battery_permission", "Background battery access", "permission background battery unrestricted optimization foreground service realtime", "advanced", "permissions_security"),
-                new SettingTarget("secure_updates_permission", "Secure app update install permission", "permission security install unknown apps apk", "advanced", "permissions_security"),
+                new SettingTarget("background_battery_permission", "Background battery settings", "permission background battery android settings", "advanced", "permissions_security"),
+                new SettingTarget("secure_updates_permission", "Google Play app updates", "updates google play store", "advanced", "permissions_security"),
                 new SettingTarget("android_permission_settings", "Android App Permission Settings", "permission security android settings app info", "advanced", "permissions_security"),
                 new SettingTarget("update_channel", "Update channel", "updates channel stable dev beta feed official releases", "advanced", "app_updates"),
                 new SettingTarget("installed_version", "Installed version", "version versioncode build installed", "advanced", "app_updates"),
                 new SettingTarget("automatic_update_checks", "Automatic update checks", "updates check automatic", "advanced", "app_updates"),
-                new SettingTarget("auto_download_apk", "Automatically download new APKs", "updates apk download automatic", "advanced", "app_updates"),
-                new SettingTarget("auto_installer", "Open installer automatically after download", "updates apk installer install unknown apps", "advanced", "app_updates"),
                 new SettingTarget("check_updates", "Check for Updates", "updates latest release version", "advanced", "app_updates"),
                 new SettingTarget("apk_verification", "APK verification information", "updates apk verification signing certificate package versioncode", "advanced", "app_updates"),
                 new SettingTarget("error_recovery_check", "Run Error & Recovery Check", "errors crash recovery diagnostics webview", "advanced", "error_recovery"),
