@@ -6043,6 +6043,7 @@ final class HcfSubActivities {
 
         private View securityCard() {
             LinearLayout card = card();
+            boolean legacy = DistributionMode.legacySystem(this);
             card.addView(sectionTitle("Permissions & Security", "Live Android access status and app hardening"));
 
             securityStatus = target(text(permissionSecuritySummary(), 11, getColor(R.color.hcf_meta)), "permission_status");
@@ -6061,65 +6062,71 @@ final class HcfSubActivities {
             card.addView(target(actionButton(
                     notificationAllowed ? "Open HCF Alert Settings" : "Allow Notification Permission",
                     v -> {
-                        if (NotificationHelper.hasRuntimePermission(this)) {
-                            NotificationHelper.openChannelSettings(this, NotificationHelper.CHANNEL_ID);
-                        } else {
-                            requestNotificationPermissionIfNeeded();
-                        }
+                        if (NotificationHelper.hasRuntimePermission(this)) NotificationHelper.openChannelSettings(this, NotificationHelper.CHANNEL_ID);
+                        else requestNotificationPermissionIfNeeded();
                     }), "notification_permission"));
 
             boolean backgroundExempt = isBackgroundBatteryExempt();
             card.addView(settingsInfoCard("Background activity",
                     backgroundDeliveryPermissionSummary(backgroundExempt),
                     R.drawable.fa_bell));
-            card.addView(target(actionButton("Open Android Battery Settings",
+            card.addView(target(actionButton(
+                    legacy && !backgroundExempt ? "Request Background Battery Access" : "Open Android Battery Settings",
                     v -> openBackgroundBatteryAccess()), "background_battery_permission"));
 
             card.addView(settingsInfoCard("App updates",
-                    "Managed by Google Play • HCF does not request permission to install APKs from this source.",
+                    legacy
+                            ? "Legacy updater enabled • verified HCF APKs can be downloaded and handed to Android's installer."
+                            : "Managed by Google Play • HCF does not request permission to install APKs from this source.",
                     R.drawable.fa_shield));
-            card.addView(target(actionButton("Open Google Play",
+            card.addView(target(actionButton(
+                    legacy ? (AppSecurity.canInstallUpdates(this) ? "Legacy Installer: Allowed" : "Allow Legacy App Updates") : "Open Google Play",
                     v -> openInstallPermission()), "secure_updates_permission"));
 
-            card.addView(settingsSubsectionHeader("System access", "Declared Android capabilities that do not use runtime permission dialogs", R.drawable.fa_gear));
+            card.addView(settingsSubsectionHeader("System access", "Build-specific Android capabilities", R.drawable.fa_gear));
             card.addView(settingsInfoCard("Background notification support",
-                    "JobScheduler + one-shot sync • no special-use foreground-service permission.",
+                    legacy
+                            ? "Legacy foreground live sync + JobScheduler fallback."
+                            : "JobScheduler + one-shot sync • no special-use foreground-service permission.",
                     R.drawable.fa_shield));
             card.addView(settingsInfoCard("Network access",
                     "Internet + network-state access are declared for the forum WebView, notification sync, domain failover, and update checks.",
                     R.drawable.fa_lock));
 
             card.addView(target(actionButton("Android App Permission Settings", v -> openAndroidAppSettings()), "android_permission_settings"));
-            card.addView(text("HCF does not request install-from-unknown-sources or direct battery-optimization exemption permissions. Background work uses Android scheduling, and app updates are delivered through Google Play.", 10, getColor(R.color.hcf_muted)));
+            card.addView(text(legacy
+                    ? "Legacy / sideload mode keeps the historical notification and APK-update system. Do not upload the Legacy APK to Google Play."
+                    : "Google Play mode removes install-from-unknown-sources, direct battery-exemption, and special-use foreground-service permissions.",
+                    10, getColor(R.color.hcf_muted)));
             return card;
         }
 
         private String permissionSecuritySummary() {
             boolean notifications = NotificationHelper.hasRuntimePermission(this);
             boolean backgroundExempt = isBackgroundBatteryExempt();
+            boolean legacy = DistributionMode.legacySystem(this);
             return "Notifications: " + (notifications ? "Allowed" : "Needs permission")
                     + "\nBattery policy: " + (backgroundExempt ? "Exempt" : "Android managed")
-                    + "\nApp updates: Google Play"
-                    + "\nBackground sync: JobScheduler + one-shot sync";
+                    + "\nApp updates: " + (legacy ? "Legacy verified APK updater" : "Google Play")
+                    + "\nBackground sync: " + (legacy ? "Foreground live sync + scheduled fallback" : "JobScheduler + one-shot sync");
         }
 
         private String backgroundDeliveryPermissionSummary(boolean backgroundExempt) {
             boolean backgroundSync = prefs.getBoolean(AppPrefs.BACKGROUND_NOTIFICATION_SYNC, true);
             String sessionUserId = prefs.getString(AppPrefs.SESSION_USER_ID, "");
             boolean signedIn = sessionUserId != null && !sessionUserId.trim().isEmpty();
+            boolean legacy = DistributionMode.legacySystem(this);
 
             String mode;
-            if (!backgroundSync) {
-                mode = "Background notification sync is off.";
-            } else if (!signedIn) {
-                mode = "Background sync is enabled but waiting for a signed-in forum session.";
-            } else {
-                mode = "Scheduled jobs + one-shot sync are enabled; Android controls execution timing.";
-            }
+            if (!backgroundSync) mode = "Background notification sync is off.";
+            else if (!signedIn) mode = "Background sync is enabled but waiting for a signed-in forum session.";
+            else if (legacy) mode = "Legacy foreground live sync is enabled with JobScheduler fallback.";
+            else mode = "Scheduled jobs + one-shot sync are enabled; Android controls execution timing.";
 
             return (backgroundExempt
                     ? "Battery optimization exemption is currently active. "
-                    : "Android battery policy is active; HCF does not request a direct exemption. ")
+                    : legacy ? "Battery optimization is active; legacy mode can request an exemption. "
+                             : "Android battery policy is active; Google Play mode does not request a direct exemption. ")
                     + mode;
         }
 
@@ -6139,13 +6146,32 @@ final class HcfSubActivities {
                 return;
             }
             try {
-                startActivity(new Intent("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS"));
+                if (DistributionMode.legacySystem(this) && !isBackgroundBatteryExempt()) {
+                    Intent intent = new Intent("android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS");
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                } else {
+                    startActivity(new Intent("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS"));
+                }
             } catch (Throwable ignored) {
                 openAndroidAppSettings();
             }
         }
 
         private void openInstallPermission() {
+            if (DistributionMode.legacySystem(this)) {
+                if (AppSecurity.canInstallUpdates(this)) {
+                    Toast.makeText(this, "Legacy app update installation is already allowed.", Toast.LENGTH_SHORT).show();
+                    refreshStatusLabels();
+                    return;
+                }
+                try {
+                    startActivity(new Intent("android.settings.MANAGE_UNKNOWN_APP_SOURCES", Uri.parse("package:" + getPackageName())));
+                } catch (Throwable error) {
+                    Toast.makeText(this, "Android could not open the legacy update permission screen.", Toast.LENGTH_LONG).show();
+                }
+                return;
+            }
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + getPackageName())));
             } catch (Throwable first) {
@@ -6168,12 +6194,16 @@ final class HcfSubActivities {
 
         private View updateCard() {
             LinearLayout card = card();
-            card.addView(sectionTitle("App Updates", "Google Play managed updates"));
-            prefs.edit()
-                    .putBoolean("update_auto_download", false)
-                    .putBoolean("update_auto_install", false)
-                    .remove("update_resume_after_permission")
-                    .apply();
+            boolean legacy = DistributionMode.legacySystem(this);
+            card.addView(sectionTitle("App Updates", legacy ? "Legacy verified APK updater" : "Google Play managed updates"));
+
+            if (!legacy) {
+                prefs.edit()
+                        .putBoolean("update_auto_download", false)
+                        .putBoolean("update_auto_install", false)
+                        .remove("update_resume_after_permission")
+                        .apply();
+            }
 
             updateChannelStatus = target(text(updateChannelLine(effectiveUpdateChannel()), 12, getColor(R.color.hcf_meta)), "update_channel");
             updateChannelStatus.setTypeface(null, 1);
@@ -6191,14 +6221,43 @@ final class HcfSubActivities {
             });
             card.addView(autoCheck);
 
-            card.addView(target(actionButton("Check for Updates", v -> checkForUpdates(true)), "check_updates"));
-            card.addView(target(actionButton("Open Google Play", v -> openInstallPermission()), "open_google_play"));
+            if (legacy) {
+                Switch autoDownload = target(toggle("Automatically download new APKs", prefs.getBoolean("update_auto_download", false)), "auto_download_apk");
+                autoDownload.setOnCheckedChangeListener((button, enabled) -> {
+                    prefs.edit().putBoolean("update_auto_download", enabled).apply();
+                    AppLogger.info(this, "setting_update_auto_download", Boolean.toString(enabled));
+                });
+                card.addView(autoDownload);
 
-            TextView verification = target(text("Google Play manages installation and signing delivery for this build. HCF no longer requests install-from-unknown-sources permission or downloads APKs for self-installation.", 10, getColor(R.color.hcf_muted)), "apk_verification");
+                Switch autoInstall = target(toggle("Open installer automatically after download", prefs.getBoolean("update_auto_install", true)), "auto_installer");
+                autoInstall.setOnCheckedChangeListener((button, enabled) -> {
+                    prefs.edit().putBoolean("update_auto_install", enabled).apply();
+                    AppLogger.info(this, "setting_update_auto_install", Boolean.toString(enabled));
+                });
+                card.addView(autoInstall);
+            }
+
+            card.addView(target(actionButton("Check for Updates", v -> checkForUpdates(true)), "check_updates"));
+
+            if (legacy) {
+                updateDownloadButton = actionButton("Download Update Now", v -> downloadAvailableUpdate());
+                updateDownloadButton.setVisibility(View.GONE);
+                card.addView(updateDownloadButton);
+                updateInstallButton = actionButton("Install Downloaded Update", v -> installDownloadedUpdate());
+                updateInstallButton.setVisibility(AppUpdateDownloader.isDownloaded(this) ? View.VISIBLE : View.GONE);
+                card.addView(updateInstallButton);
+            } else {
+                card.addView(target(actionButton("Open Google Play", v -> openInstallPermission()), "open_google_play"));
+                updateDownloadButton = null;
+                updateInstallButton = null;
+            }
+
+            TextView verification = target(text(legacy
+                    ? "Legacy mode verifies package name, Android versionCode, SHA-256, and signing-certificate lineage before handing the APK to Android's installer."
+                    : "Google Play manages installation and signing delivery. HCF does not request install-from-unknown-sources permission in this build.",
+                    10, getColor(R.color.hcf_muted)), "apk_verification");
             verification.setPadding(0, dp(8), 0, 0);
             card.addView(verification);
-            updateDownloadButton = null;
-            updateInstallButton = null;
             return card;
         }
 
@@ -6249,8 +6308,20 @@ final class HcfSubActivities {
                     if (newer) {
                         updateStatus.setText(channelDisplayName(channel) + " Update Available\nInstalled: " + installed + "\nLatest available: " + remote + "\nReason: " + UpdateChecker.updateReason(release) + "\n" + releaseType + " • " + asset);
                         updateStatus.setTextColor(getColor(R.color.hcf_accent_text));
-                        if (updateDownloadButton != null && release.apkUrl != null && !release.apkUrl.isEmpty()) updateDownloadButton.setVisibility(View.VISIBLE);
-                        prefs.edit().putBoolean("update_auto_download", false).putBoolean("update_auto_install", false).apply();
+                        if (DistributionMode.legacySystem(SettingsActivity.this)) {
+                            if (updateDownloadButton != null && release.apkUrl != null && !release.apkUrl.isEmpty()) {
+                                updateDownloadButton.setVisibility(View.VISIBLE);
+                            }
+                            if (prefs.getBoolean("update_auto_download", false) && release.apkUrl != null && !release.apkUrl.isEmpty()) {
+                                long id = AppUpdateDownloader.enqueue(SettingsActivity.this, release, userInitiated);
+                                if (id > 0) {
+                                    updateStatus.append("\nAutomatic legacy download queued.");
+                                    watchUpdateDownloadForAutoInstall(id);
+                                }
+                            }
+                        } else {
+                            prefs.edit().putBoolean("update_auto_download", false).putBoolean("update_auto_install", false).apply();
+                        }
                         if (userInitiated) Toast.makeText(SettingsActivity.this, release.sameVersionHashUpdate
                                 ? "Revised Dev/Beta APK available • SHA-256 changed"
                                 : channelDisplayName(channel) + " update available" + (release.versionCode > 0 ? " • build " + release.versionCode : ""), Toast.LENGTH_LONG).show();
@@ -6297,19 +6368,61 @@ final class HcfSubActivities {
         }
 
         private void installDownloadedUpdate(long id) {
-            prefs.edit().remove("update_resume_after_permission").apply();
-            openInstallPermission();
+            if (!DistributionMode.legacySystem(this)) {
+                prefs.edit().remove("update_resume_after_permission").apply();
+                openInstallPermission();
+                return;
+            }
+            if (id <= 0) {
+                Toast.makeText(this, "No downloaded update is ready yet.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (getPackageManager().canRequestPackageInstalls()) {
+                if (!AppUpdateDownloader.openInstaller(this, id)) {
+                    Toast.makeText(this, "The Android installer could not open this download.", Toast.LENGTH_LONG).show();
+                }
+                return;
+            }
+            try {
+                prefs.edit().putBoolean("update_resume_after_permission", true).apply();
+                startActivityForResult(new Intent("android.settings.MANAGE_UNKNOWN_APP_SOURCES",
+                        Uri.parse("package:" + getPackageName())), UPDATE_INSTALL_PERMISSION_REQUEST);
+                Toast.makeText(this, "Allow installs from this source. HCF will resume the verified update when you return.", Toast.LENGTH_LONG).show();
+            } catch (Throwable error) {
+                prefs.edit().remove("update_resume_after_permission").apply();
+                Toast.makeText(this, "Android blocked legacy installation permission settings.", Toast.LENGTH_LONG).show();
+            }
         }
 
         private void resumeUpdateInstallAfterPermission() {
+            if (!DistributionMode.legacySystem(this)) {
+                prefs.edit().remove("update_resume_after_permission").apply();
+                return;
+            }
+            if (!prefs.getBoolean("update_resume_after_permission", false) || !AppSecurity.canInstallUpdates(this)) return;
             prefs.edit().remove("update_resume_after_permission").apply();
+            long id = AppUpdateDownloader.downloadedId(this);
+            if (id > 0) {
+                Toast.makeText(this, "Install permission enabled • opening verified update…", Toast.LENGTH_SHORT).show();
+                if (!AppUpdateDownloader.openInstaller(this, id)) {
+                    Toast.makeText(this, "The Android installer could not open this verified update.", Toast.LENGTH_LONG).show();
+                }
+            }
         }
 
         @Override
         protected void onActivityResult(int requestCode, int resultCode, Intent data) {
             super.onActivityResult(requestCode, resultCode, data);
             if (requestCode == UPDATE_INSTALL_PERMISSION_REQUEST) {
-                prefs.edit().remove("update_resume_after_permission").apply();
+                if (DistributionMode.legacySystem(this)) {
+                    if (AppSecurity.canInstallUpdates(this)) resumeUpdateInstallAfterPermission();
+                    else {
+                        prefs.edit().remove("update_resume_after_permission").apply();
+                        Toast.makeText(this, "Legacy install permission was not enabled. The downloaded APK was kept.", Toast.LENGTH_LONG).show();
+                    }
+                } else {
+                    prefs.edit().remove("update_resume_after_permission").apply();
+                }
             }
         }
 

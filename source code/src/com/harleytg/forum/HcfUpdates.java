@@ -1015,12 +1015,12 @@ final class UpdateAutomation {
                     String assetKey = release.assetKey();
                     sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
                     if (z2) {
-                        sharedPreferences.edit()
-                                .putBoolean("update_auto_download", false)
-                                .putBoolean("update_auto_install", false)
-                                .putString("update_last_available_tag", assetKey)
-                                .apply();
-                        if (!assetKey.equals(string)) {
+                        sharedPreferences.edit().putString("update_last_available_tag", assetKey).apply();
+                        if (DistributionMode.legacySystem(applicationContext)
+                                && sharedPreferences.getBoolean("update_auto_download", false)
+                                && release.apkUrl != null && !release.apkUrl.isEmpty()) {
+                            AppUpdateDownloader.enqueue(applicationContext, release, false);
+                        } else if (!assetKey.equals(string)) {
                             NotificationHelper.postUpdateAvailable(applicationContext, release);
                         }
                     }
