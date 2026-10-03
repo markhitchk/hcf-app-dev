@@ -245,8 +245,20 @@ jobs:
           grep -Fq 'HCF full native motion overhaul applied' "$RUNNER_TEMP/hcf-motion-audit.txt"
           grep -Fq 'HCF_MOTION_SYSTEM_V4_ALL_NATIVE' 'source code/src/com/harleytg/forum/motion/HcfMotionSystem.kt'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Use runner Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager is not available on this GitHub runner." >&2
+            exit 1
+          fi
+          "$SDKMANAGER" --version
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK_ROOT"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
 
       - name: Install Android 35 build tools
         shell: bash
