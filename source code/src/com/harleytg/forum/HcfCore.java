@@ -742,37 +742,13 @@ final class BatteryOptimizationHelper {
     static void maybeRequest(Activity activity) {
         if (activity == null || Build.VERSION.SDK_INT < 23) return;
         SharedPreferences prefs = activity.getSharedPreferences(AppPrefs.FILE, Context.MODE_PRIVATE);
-
-        if (!DistributionMode.legacySystem(activity)) {
-            if (!prefs.getBoolean(PREF_REQUEST_SHOWN, false)) {
-                prefs.edit()
-                        .putBoolean(PREF_REQUEST_SHOWN, true)
-                        .putBoolean(PREF_DENIED, !isIgnoring(activity))
-                        .apply();
-                AppLogger.info(activity, "battery_optimization", "Google Play mode • no direct exemption request");
-            }
-            return;
-        }
-
-        if (!prefs.getBoolean("aggressive_realtime", true)) return;
-        if (isIgnoring(activity)) {
-            prefs.edit().putBoolean(PREF_DENIED, false).putBoolean(PREF_WARNING_LOGGED, false).apply();
-            return;
-        }
         if (!prefs.getBoolean(PREF_REQUEST_SHOWN, false)) {
-            prefs.edit().putBoolean(PREF_REQUEST_SHOWN, true).apply();
-            try {
-                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                intent.setData(Uri.parse("package:" + activity.getPackageName()));
-                activity.startActivity(intent);
-                AppLogger.info(activity, "battery_optimization_request", "legacy mode • requested");
-            } catch (Throwable error) {
-                prefs.edit().putBoolean(PREF_DENIED, true).apply();
-                AppLogger.warn(activity, "battery_optimization_request", "unavailable | " + error.getClass().getSimpleName());
-            }
-            return;
+            prefs.edit()
+                    .putBoolean(PREF_REQUEST_SHOWN, true)
+                    .putBoolean(PREF_DENIED, !isIgnoring(activity))
+                    .apply();
+            AppLogger.info(activity, "battery_optimization", "Google Play mode • no direct exemption request");
         }
-        prefs.edit().putBoolean(PREF_DENIED, true).apply();
     }
 
     private BatteryOptimizationHelper() {}
@@ -1683,29 +1659,6 @@ final class HcfSecurityAndPrefs {
     private HcfSecurityAndPrefs() {}
 }
 
-// ---- DistributionMode.java ----
-final class DistributionMode {
-    private static final String META_LEGACY_SYSTEM = "com.harleytg.LEGACY_SYSTEM";
-
-    static boolean legacySystem(Context context) {
-        if (context == null) return false;
-        try {
-            Bundle meta = context.getPackageManager()
-                    .getApplicationInfo(context.getPackageName(), PackageManager.GET_META_DATA)
-                    .metaData;
-            return meta != null && meta.getBoolean(META_LEGACY_SYSTEM, false);
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    static String label(Context context) {
-        return legacySystem(context) ? "Legacy / sideload" : "Google Play";
-    }
-
-    private DistributionMode() {}
-}
-
 // ---- AppSecurity.java ----
 /* loaded from: classes.dex */
 final class AppSecurity {
@@ -1721,12 +1674,7 @@ final class AppSecurity {
     }
 
     static boolean canInstallUpdates(Context context) {
-        if (!DistributionMode.legacySystem(context) || context == null) return false;
-        try {
-            return context.getPackageManager().canRequestPackageInstalls();
-        } catch (Throwable unused) {
-            return false;
-        }
+        return false;
     }
 
     static boolean isTrustedReleaseDownload(String str) {
