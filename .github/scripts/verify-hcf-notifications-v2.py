@@ -21,15 +21,12 @@ if "JobScheduler" not in engine or "NotificationSyncJobService" not in engine:
 if "scheduled jobs + one-shot sync" not in engine:
     raise SystemExit("Play-safe notification sync mode marker is missing")
 if "context.startForegroundService(intent)" in engine:
-    if "DistributionMode.legacySystem(context)" not in engine:
-        raise SystemExit("Foreground-service startup is not gated behind legacy distribution mode")
-    legacy_manifest = (source / "AndroidManifest.legacy.xml").read_text(encoding="utf-8")
-    for required in (
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
-        'android:foregroundServiceType="specialUse"',
-    ):
-        if required not in legacy_manifest:
-            raise SystemExit(f"Legacy notification manifest is missing: {required}")
+    raise SystemExit("Foreground-service startup call remains active")
 
-print("HCF notification verification passed: Play uses JobScheduler + one-shot sync; legacy FGS is isolated to the legacy manifest.")
+if "DistributionMode" in engine or "legacy foreground live sync" in engine.lower():
+    raise SystemExit("Legacy notification distribution logic remains active")
+
+if (source / "AndroidManifest.legacy.xml").exists():
+    raise SystemExit("Legacy Android manifest must not exist")
+
+print("HCF notification verification passed: JobScheduler + one-shot sync only; no special-use FGS or legacy manifest.")
