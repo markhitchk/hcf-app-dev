@@ -292,12 +292,6 @@ final class PlayStoreUpdateChecker {
         }
         final Context app = context.getApplicationContext();
 
-        if (DistributionMode.legacySystem(app)) {
-            deliver(callback, new Result(false, -1L, false, false,
-                    "Legacy / sideload mode uses the HCF APK release channel."));
-            return;
-        }
-
         final boolean fromPlay = installedFromPlay(app);
         if (!fromPlay) {
             deliver(callback, new Result(false, -1L, false, false,
@@ -1147,57 +1141,24 @@ final class UpdateAutomation {
             return;
         }
 
-        if (!DistributionMode.legacySystem(applicationContext)) {
-            PlayStoreUpdateChecker.check(applicationContext, result -> {
-                sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
-                if (result.querySucceeded && result.available) {
-                    long lastNotified = sharedPreferences.getLong("play_store_last_notified_version", -1L);
-                    if (result.availableVersionCode <= 0L || result.availableVersionCode != lastNotified) {
-                        NotificationHelper.postPlayStoreUpdateAvailable(applicationContext, result.availableVersionCode);
-                        sharedPreferences.edit()
-                                .putLong("play_store_last_notified_version", result.availableVersionCode)
-                                .apply();
-                    }
+        PlayStoreUpdateChecker.check(applicationContext, result -> {
+            sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
+            if (result.querySucceeded && result.available) {
+                long lastNotified = sharedPreferences.getLong("play_store_last_notified_version", -1L);
+                if (result.availableVersionCode <= 0L || result.availableVersionCode != lastNotified) {
+                    NotificationHelper.postPlayStoreUpdateAvailable(applicationContext, result.availableVersionCode);
+                    sharedPreferences.edit()
+                            .putLong("play_store_last_notified_version", result.availableVersionCode)
+                            .apply();
                 }
-                AppLogger.info(applicationContext, "play_store_update_check",
-                        "available=" + result.available
-                                + " | availableVersionCode=" + result.availableVersionCode
-                                + " | installedFromPlay=" + result.installedFromPlay
-                                + " | success=" + result.querySucceeded);
-                UpdateAutomation.finish(listener, null, result.available,
-                        result.querySucceeded ? null : result.message);
-            });
-            return;
-        }
-
-        final String channel = "dev";
-        UpdateChecker.check(applicationContext, channel, new UpdateChecker.Callback() {
-            @Override public void onResult(UpdateChecker.Release release, boolean updateAvailable) {
-                String previousAsset = sharedPreferences.getString("update_last_available_tag", "");
-                String assetKey = release.assetKey();
-                sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
-                if (updateAvailable) {
-                    sharedPreferences.edit().putString("update_last_available_tag", assetKey).apply();
-                    if (sharedPreferences.getBoolean("update_auto_download", false)
-                            && release.apkUrl != null && !release.apkUrl.isEmpty()) {
-                        AppUpdateDownloader.enqueue(applicationContext, release, false);
-                    } else if (!assetKey.equals(previousAsset)) {
-                        NotificationHelper.postUpdateAvailable(applicationContext, release);
-                    }
-                }
-                boolean feedBehind = UpdateChecker.compareReleaseToInstalled(release) < 0;
-                AppLogger.info(applicationContext, "update_auto_check",
-                        channel + " | " + release.tag + " | newer=" + updateAvailable
-                                + " | feedBehind=" + feedBehind + " | legacy=true");
-                UpdateAutomation.finish(listener, release, updateAvailable, null);
             }
-
-            @Override public void onError(String message) {
-                sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
-                AppLogger.warn(applicationContext, "update_auto_check", message);
-                TelemetryService.sendDiagnosticEvent(applicationContext, "update_check_failed", message);
-                UpdateAutomation.finish(listener, null, false, message);
-            }
+            AppLogger.info(applicationContext, "play_store_update_check",
+                    "available=" + result.available
+                            + " | availableVersionCode=" + result.availableVersionCode
+                            + " | installedFromPlay=" + result.installedFromPlay
+                            + " | success=" + result.querySucceeded);
+            UpdateAutomation.finish(listener, null, result.available,
+                    result.querySucceeded ? null : result.message);
         });
     }
 
