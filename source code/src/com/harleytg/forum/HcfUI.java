@@ -4460,6 +4460,9 @@ final class HcfSubActivities {
             try {
                 refreshStatusLabels();
                 resumeUpdateInstallAfterPermission();
+                if (updateStatus != null && !DistributionMode.legacySystem(this)) {
+                    checkPlayStoreUpdateStatus(false);
+                }
             } catch (Throwable error) {
                 AppLogger.error(this, "settings_resume", error.getClass().getSimpleName());
             }
@@ -6173,7 +6176,9 @@ final class HcfSubActivities {
                 return;
             }
             try {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + getPackageName())));
+                Intent market = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + getPackageName()));
+                market.setPackage("com.android.vending");
+                startActivity(market);
             } catch (Throwable first) {
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW,
@@ -6210,7 +6215,10 @@ final class HcfSubActivities {
             card.addView(updateChannelStatus);
             long lastCheck = prefs.getLong("update_last_check", 0L);
             String checked = lastCheck <= 0 ? "Not checked yet on this install" : "Last checked " + ageLabel(lastCheck);
-            updateStatus = target(text("Installed: v" + BuildInfo.VERSION + " (" + installedVersionCode() + ")\nLatest available: Not checked\n" + checked, 11, getColor(R.color.hcf_muted)), "installed_version");
+            String initialUpdateStatus = legacy
+                    ? "Installed: v" + BuildInfo.VERSION + " (" + installedVersionCode() + ")\nLatest available: Not checked\n" + checked
+                    : "Installed: v" + BuildInfo.VERSION + " (" + installedVersionCode() + ")\nGoogle Play status: Checking…\n" + checked;
+            updateStatus = target(text(initialUpdateStatus, 11, getColor(R.color.hcf_muted)), "installed_version");
             card.addView(updateStatus);
 
             Switch autoCheck = target(toggle("Automatic update checks", prefs.getBoolean("update_auto_check", true)), "automatic_update_checks");
@@ -6258,6 +6266,9 @@ final class HcfSubActivities {
                     10, getColor(R.color.hcf_muted)), "apk_verification");
             verification.setPadding(0, dp(8), 0, 0);
             card.addView(verification);
+            if (!legacy) {
+                getWindow().getDecorView().post(() -> checkPlayStoreUpdateStatus(false));
+            }
             return card;
         }
 
@@ -6290,8 +6301,60 @@ final class HcfSubActivities {
             return "stable".equalsIgnoreCase(channel) ? "Stable" : "Dev/Beta";
         }
 
+        private void checkPlayStoreUpdateStatus(final boolean userInitiated) {
+            if (updateStatus == null) return;
+
+            updateStatus.setText("Checking Google Play for an update…\nInstalled: v"
+                    + BuildInfo.VERSION + " (" + installedVersionCode() + ")");
+            updateStatus.setTextColor(getColor(R.color.hcf_meta));
+
+            PlayStoreUpdateChecker.check(this, result -> {
+                if (isFinishing() || isDestroyed() || updateStatus == null) return;
+
+                prefs.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
+                String installed = "v" + BuildInfo.VERSION + " (" + installedVersionCode() + ")";
+
+                if (result.querySucceeded && result.available) {
+                    String available = result.availableVersionCode > 0
+                            ? " • available build " + result.availableVersionCode : "";
+                    updateStatus.setText("Google Play Update Available\nInstalled: " + installed + available
+                            + "\nTap Open Google Play to update.");
+                    updateStatus.setTextColor(getColor(R.color.hcf_accent_text));
+                    if (userInitiated) {
+                        Toast.makeText(SettingsActivity.this,
+                                "An update is available through Google Play.", Toast.LENGTH_LONG).show();
+                    }
+                } else if (result.querySucceeded) {
+                    updateStatus.setText("Up to date in Google Play\nInstalled: " + installed
+                            + "\nGoogle Play reports no newer update for this account/track.");
+                    updateStatus.setTextColor(getColor(R.color.hcf_meta));
+                    if (userInitiated) {
+                        Toast.makeText(SettingsActivity.this,
+                                "Google Play reports this build is up to date.", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    updateStatus.setText("Google Play status unavailable\nInstalled: " + installed
+                            + "\n" + result.message);
+                    updateStatus.setTextColor(getColor(R.color.hcf_warning));
+                    if (userInitiated) {
+                        Toast.makeText(SettingsActivity.this, result.message, Toast.LENGTH_LONG).show();
+                    }
+                }
+
+                AppLogger.info(SettingsActivity.this, "play_store_update_ui",
+                        "available=" + result.available
+                                + " | versionCode=" + result.availableVersionCode
+                                + " | installedFromPlay=" + result.installedFromPlay
+                                + " | success=" + result.querySucceeded);
+            });
+        }
+
         private void checkForUpdates(final boolean userInitiated) {
             if (updateStatus == null) return;
+            if (!DistributionMode.legacySystem(this)) {
+                checkPlayStoreUpdateStatus(userInitiated);
+                return;
+            }
             final String channel = effectiveUpdateChannel();
             updateStatus.setText("Checking " + channelDisplayName(channel) + " release channel…");
             updateStatus.setTextColor(getColor(R.color.hcf_meta));
