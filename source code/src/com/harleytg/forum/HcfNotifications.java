@@ -1092,6 +1092,39 @@ if (z) {
         postInternal(context, "Harley's Clan Forum", str3, Uri.parse(ForumUrlRouter.home(str) + "notifications"), FORUM_SUMMARY_ID, true, false);
     }
 
+    static void postPlayStoreUpdateAvailable(Context context, long availableVersionCode) {
+        createChannel(context);
+        if (!hasRuntimePermission(context) || !areAppNotificationsEnabled(context)) return;
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW,
+                    Uri.parse("market://details?id=" + context.getPackageName()));
+            intent.setPackage("com.android.vending");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent activity = PendingIntent.getActivity(context, 51003, intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+            String detail = availableVersionCode > 0
+                    ? "Google Play has build " + availableVersionCode + " available."
+                    : "A newer build is available through Google Play.";
+
+            Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_notification_paw)
+                    .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.drawable.htg_app_logo))
+                    .setContentTitle("Google Play update available")
+                    .setContentText(detail)
+                    .setContentIntent(activity)
+                    .setAutoCancel(true)
+                    .setCategory("sys")
+                    .setVisibility(Notification.VISIBILITY_PUBLIC)
+                    .setPriority(Notification.PRIORITY_DEFAULT);
+
+            NotificationManager manager = (NotificationManager) context.getSystemService("notification");
+            if (manager != null) manager.notify(51003, builder.build());
+        } catch (Throwable error) {
+            AppLogger.warn(context, "play_store_update_notification", error.getClass().getSimpleName());
+        }
+    }
+
     static void postUpdateAvailable(Context context, UpdateChecker.Release release) {
         String str;
         createChannel(context);
