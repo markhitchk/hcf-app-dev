@@ -182,25 +182,27 @@ object HcfBanDevTools {
         }
     }
 
-    private fun diagnose(context: Context): DiagnosticResult = try {
-        val config = loadRuntimeConfigForDiagnostic(context)
-            ?: return DiagnosticResult.unavailable("Configuration could not be loaded")
-        if (!config.ready()) return DiagnosticResult.inactive()
+    private fun diagnose(context: Context): DiagnosticResult {
+        return try {
+            val config = loadRuntimeConfigForDiagnostic(context)
+                ?: return DiagnosticResult.unavailable("Configuration could not be loaded")
+            if (!config.ready()) return DiagnosticResult.inactive()
 
-        val root = JSONObject(downloadJson(config.banListUrl))
-        if (root.optInt("schema_version", 0) != 1) {
-            return DiagnosticResult.unavailable("Ban-list schema is invalid")
-        }
-        if (root.optJSONObject("users") == null || root.optJSONObject("ip_sha256") == null) {
-            return DiagnosticResult.unavailable("Ban-list structure is incomplete")
-        }
+            val root = JSONObject(downloadJson(config.banListUrl))
+            if (root.optInt("schema_version", 0) != 1) {
+                return DiagnosticResult.unavailable("Ban-list schema is invalid")
+            }
+            if (root.optJSONObject("users") == null || root.optJSONObject("ip_sha256") == null) {
+                return DiagnosticResult.unavailable("Ban-list structure is incomplete")
+            }
 
-        val networkAvailable =
-            lookupPublicIpAvailable(config.ipPrimary) || lookupPublicIpAvailable(config.ipFallback)
-        if (!networkAvailable) DiagnosticResult.degraded() else DiagnosticResult.working()
-    } catch (error: Throwable) {
-        val clean = unwrap(error)
-        DiagnosticResult.unavailable(clean?.javaClass?.simpleName ?: "UnknownError")
+            val networkAvailable =
+                lookupPublicIpAvailable(config.ipPrimary) || lookupPublicIpAvailable(config.ipFallback)
+            if (!networkAvailable) DiagnosticResult.degraded() else DiagnosticResult.working()
+        } catch (error: Throwable) {
+            val clean = unwrap(error)
+            DiagnosticResult.unavailable(clean?.javaClass?.simpleName ?: "UnknownError")
+        }
     }
 
     @Throws(Exception::class)
