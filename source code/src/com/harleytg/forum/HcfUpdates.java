@@ -312,7 +312,7 @@ final class UpdateAutomation {
     /* JADX INFO: Access modifiers changed from: private */
     public static void finish(Listener listener, PlayStoreUpdateChecker.Result result, boolean z, String str) {
         if (listener != null) {
-            listener.onFinished(release, z, str);
+            listener.onFinished(result, z, str);
         }
     }
 
