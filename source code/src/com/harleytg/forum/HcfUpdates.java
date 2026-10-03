@@ -51,6 +51,8 @@ import java.util.List;
 import java.util.Locale;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
+import com.google.android.play.core.install.model.UpdateAvailability;
 
 
 // ---- Consolidated from HcfUpdateEngine.java ----
@@ -263,6 +265,100 @@ public final class HcfUpdates {
         }
     }
 }
+
+// ---- PlayStoreUpdateChecker.java ----
+final class PlayStoreUpdateChecker {
+    interface Callback { void onResult(Result result); }
+
+    static final class Result {
+        final boolean available;
+        final long availableVersionCode;
+        final boolean installedFromPlay;
+        final boolean querySucceeded;
+        final String message;
+
+        Result(boolean available, long availableVersionCode, boolean installedFromPlay,
+               boolean querySucceeded, String message) {
+            this.available = available;
+            this.availableVersionCode = availableVersionCode;
+            this.installedFromPlay = installedFromPlay;
+            this.querySucceeded = querySucceeded;
+            this.message = message == null ? "" : message;
+        }
+    }
+
+    static void check(Context context, final Callback callback) {
+        if (context == null) {
+            deliver(callback, new Result(false, -1L, false, false, "Context unavailable."));
+            return;
+        }
+        final Context app = context.getApplicationContext();
+
+        if (DistributionMode.legacySystem(app)) {
+            deliver(callback, new Result(false, -1L, false, false,
+                    "Legacy / sideload mode uses the HCF APK release channel."));
+            return;
+        }
+
+        final boolean fromPlay = installedFromPlay(app);
+        if (!fromPlay) {
+            deliver(callback, new Result(false, -1L, false, false,
+                    "This install was not installed by Google Play. Install the Play test/release build from Google Play to query update availability."));
+            return;
+        }
+
+        try {
+            AppUpdateManagerFactory.create(app).getAppUpdateInfo()
+                    .addOnSuccessListener(info -> {
+                        int availability = info.updateAvailability();
+                        boolean available = availability == UpdateAvailability.UPDATE_AVAILABLE
+                                || availability == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS;
+                        long availableCode = info.availableVersionCode();
+                        deliver(callback, new Result(
+                                available,
+                                availableCode,
+                                true,
+                                true,
+                                available ? "Update available in Google Play." : "Up to date in Google Play."));
+                    })
+                    .addOnFailureListener(error -> {
+                        String detail = error == null ? "Unknown Play Core error"
+                                : error.getClass().getSimpleName()
+                                + (error.getMessage() == null || error.getMessage().trim().isEmpty()
+                                ? "" : ": " + error.getMessage().trim());
+                        deliver(callback, new Result(false, -1L, true, false,
+                                "Google Play update status is temporarily unavailable • " + detail));
+                    });
+        } catch (Throwable error) {
+            deliver(callback, new Result(false, -1L, true, false,
+                    "Google Play update status is unavailable • " + error.getClass().getSimpleName()));
+        }
+    }
+
+    static boolean installedFromPlay(Context context) {
+        if (context == null) return false;
+        try {
+            PackageManager pm = context.getPackageManager();
+            String installer;
+            if (Build.VERSION.SDK_INT >= 30) {
+                installer = pm.getInstallSourceInfo(context.getPackageName()).getInstallingPackageName();
+            } else {
+                installer = pm.getInstallerPackageName(context.getPackageName());
+            }
+            return "com.android.vending".equals(installer);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static void deliver(final Callback callback, final Result result) {
+        if (callback == null) return;
+        new Handler(Looper.getMainLooper()).post(() -> callback.onResult(result));
+    }
+
+    private PlayStoreUpdateChecker() {}
+}
+
 
 // ---- UpdateChecker.java ----
 /** Dev/Beta release checker. This package is intentionally locked to prerelease releases. */
@@ -993,51 +1089,74 @@ final class UpdateAutomation {
     }
 
     static void maybeCheck(Context context, boolean z, final Listener listener) {
-        if (context == null) {
-            return;
-        }
+        if (context == null) return;
         final Context applicationContext = context.getApplicationContext();
         final SharedPreferences sharedPreferences = applicationContext.getSharedPreferences("hcf_app", 0);
+
         if (!z && !sharedPreferences.getBoolean("update_auto_check", true)) {
             finish(listener, null, false, "Automatic update checks are off.");
             return;
         }
-        long currentTimeMillis = System.currentTimeMillis();
-        long j = sharedPreferences.getLong("update_last_check", 0L);
-        if (!z && j > 0 && currentTimeMillis - j < FOREGROUND_MIN_INTERVAL_MS) {
-            finish(listener, null, false, null);
-        } else {
-            final String str = "dev";
-            UpdateChecker.check(applicationContext, "dev", new UpdateChecker.Callback() { // from class: com.harleytg.forum.dev.UpdateAutomation.1
-                @Override // com.harleytg.forum.dev.UpdateChecker.Callback
-                public void onResult(UpdateChecker.Release release, boolean z2) {
-                    String string = sharedPreferences.getString("update_last_available_tag", "");
-                    String assetKey = release.assetKey();
-                    sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
-                    if (z2) {
-                        sharedPreferences.edit().putString("update_last_available_tag", assetKey).apply();
-                        if (DistributionMode.legacySystem(applicationContext)
-                                && sharedPreferences.getBoolean("update_auto_download", false)
-                                && release.apkUrl != null && !release.apkUrl.isEmpty()) {
-                            AppUpdateDownloader.enqueue(applicationContext, release, false);
-                        } else if (!assetKey.equals(string)) {
-                            NotificationHelper.postUpdateAvailable(applicationContext, release);
-                        }
-                    }
-                    boolean z3 = UpdateChecker.compareReleaseToInstalled(release) < 0;
-                    AppLogger.info(applicationContext, "update_auto_check", str + " | " + release.tag + " | newer=" + z2 + " | feedBehind=" + z3);
-                    UpdateAutomation.finish(listener, release, z2, null);
-                }
 
-                @Override // com.harleytg.forum.dev.UpdateChecker.Callback
-                public void onError(String str2) {
-                    sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
-                    AppLogger.warn(applicationContext, "update_auto_check", str2);
-                    TelemetryService.sendDiagnosticEvent(applicationContext, "update_check_failed", str2);
-                    UpdateAutomation.finish(listener, null, false, str2);
-                }
-            });
+        long now = System.currentTimeMillis();
+        long lastCheck = sharedPreferences.getLong("update_last_check", 0L);
+        if (!z && lastCheck > 0 && now - lastCheck < FOREGROUND_MIN_INTERVAL_MS) {
+            finish(listener, null, false, null);
+            return;
         }
+
+        if (!DistributionMode.legacySystem(applicationContext)) {
+            PlayStoreUpdateChecker.check(applicationContext, result -> {
+                sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
+                if (result.querySucceeded && result.available) {
+                    long lastNotified = sharedPreferences.getLong("play_store_last_notified_version", -1L);
+                    if (result.availableVersionCode <= 0L || result.availableVersionCode != lastNotified) {
+                        NotificationHelper.postPlayStoreUpdateAvailable(applicationContext, result.availableVersionCode);
+                        sharedPreferences.edit()
+                                .putLong("play_store_last_notified_version", result.availableVersionCode)
+                                .apply();
+                    }
+                }
+                AppLogger.info(applicationContext, "play_store_update_check",
+                        "available=" + result.available
+                                + " | availableVersionCode=" + result.availableVersionCode
+                                + " | installedFromPlay=" + result.installedFromPlay
+                                + " | success=" + result.querySucceeded);
+                UpdateAutomation.finish(listener, null, result.available,
+                        result.querySucceeded ? null : result.message);
+            });
+            return;
+        }
+
+        final String channel = "dev";
+        UpdateChecker.check(applicationContext, channel, new UpdateChecker.Callback() {
+            @Override public void onResult(UpdateChecker.Release release, boolean updateAvailable) {
+                String previousAsset = sharedPreferences.getString("update_last_available_tag", "");
+                String assetKey = release.assetKey();
+                sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
+                if (updateAvailable) {
+                    sharedPreferences.edit().putString("update_last_available_tag", assetKey).apply();
+                    if (sharedPreferences.getBoolean("update_auto_download", false)
+                            && release.apkUrl != null && !release.apkUrl.isEmpty()) {
+                        AppUpdateDownloader.enqueue(applicationContext, release, false);
+                    } else if (!assetKey.equals(previousAsset)) {
+                        NotificationHelper.postUpdateAvailable(applicationContext, release);
+                    }
+                }
+                boolean feedBehind = UpdateChecker.compareReleaseToInstalled(release) < 0;
+                AppLogger.info(applicationContext, "update_auto_check",
+                        channel + " | " + release.tag + " | newer=" + updateAvailable
+                                + " | feedBehind=" + feedBehind + " | legacy=true");
+                UpdateAutomation.finish(listener, release, updateAvailable, null);
+            }
+
+            @Override public void onError(String message) {
+                sharedPreferences.edit().putLong("update_last_check", System.currentTimeMillis()).apply();
+                AppLogger.warn(applicationContext, "update_auto_check", message);
+                TelemetryService.sendDiagnosticEvent(applicationContext, "update_check_failed", message);
+                UpdateAutomation.finish(listener, null, false, message);
+            }
+        });
     }
 
     /* JADX INFO: Access modifiers changed from: private */
