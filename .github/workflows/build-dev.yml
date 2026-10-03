@@ -243,7 +243,7 @@ jobs:
           set -euo pipefail
           python3 .github/scripts/apply-motion-overhaul.py 'source code' | tee "$RUNNER_TEMP/hcf-motion-audit.txt"
           grep -Fq 'HCF full native motion overhaul applied' "$RUNNER_TEMP/hcf-motion-audit.txt"
-          grep -Fq 'HCF_MOTION_SYSTEM_V4_ALL_NATIVE' 'source code/src/com/harleytg/forum/motion/HcfMotionSystem.java'
+          grep -Fq 'HCF_MOTION_SYSTEM_V4_ALL_NATIVE' 'source code/src/com/harleytg/forum/motion/HcfMotionSystem.kt'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
