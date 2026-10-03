@@ -6605,6 +6605,14 @@ final class HcfSubActivities {
             }
         }
 
+        private String effectiveUpdateChannel() {
+            return "Google Play";
+        }
+
+        private String updateChannelLine(String ignored) {
+            return "Channel: Google Play";
+        }
+
         private long installedVersionCode() {
             try {
                 PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
