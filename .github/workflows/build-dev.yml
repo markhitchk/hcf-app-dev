@@ -347,8 +347,6 @@ jobs:
           grep -Fq "versionName='${HCF_VERSION_NAME}'" "$OUT/APK-BADGING.txt"
 
           unzip -p "$APK" classes.dex | strings > "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'same build code, revised APK hash' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'APK SHA-256 does not match' "$OUT/DEX-STRINGS.txt"
           grep -Fq 'App Setup' "$OUT/DEX-STRINGS.txt"
           grep -Fq 'Forum Account' "$OUT/DEX-STRINGS.txt"
           grep -Fq 'Sign In to Forum' "$OUT/DEX-STRINGS.txt"
@@ -376,6 +374,9 @@ jobs:
           grep -Fq 'PlayStoreUpdateChecker' "$OUT/DEX-STRINGS.txt"
           grep -Fq 'AppUpdateManagerFactory' "$OUT/DEX-STRINGS.txt"
           grep -Fq 'Google Play Update Available' "$OUT/DEX-STRINGS.txt"
+          ! grep -Fq 'MANAGE_UNKNOWN_APP_SOURCES' "$OUT/DEX-STRINGS.txt"
+          ! grep -Fq 'AppUpdateDownloader' "$OUT/DEX-STRINGS.txt"
+          ! grep -Fq 'AndroidManifest.legacy.xml' "$OUT/DEX-STRINGS.txt"
           ! grep -Fq 'https://discord.com/api/webhooks/' "$OUT/DEX-STRINGS.txt"
           ! grep -Fq 'https://discordapp.com/api/webhooks/' "$OUT/DEX-STRINGS.txt"
           ! grep -Fq 'cloudfunctions.net/hcfBanApi' "$OUT/DEX-STRINGS.txt"
