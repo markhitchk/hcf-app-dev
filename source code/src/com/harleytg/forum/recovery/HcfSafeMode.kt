@@ -393,7 +393,7 @@ object HcfSafeMode {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(18), dp(24), dp(18), dp(28))
             }
-            scroll.addView(root, ScrollView.LayoutParams(
+            scroll.addView(root, android.view.ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ))
