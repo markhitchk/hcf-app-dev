@@ -357,7 +357,7 @@ object HcfUiMotion {
             android.os.SystemClock.uptimeMillis() - resolvedAt > 4000L
 
         fun duration(base: Long): Long =
-            if (!enabled) 0L else maxOf(1L, Math.round(base * durationScale))
+            if (!enabled) 0L else maxOf(1L, Math.round(base.toDouble() * durationScale.toDouble()))
 
         fun dpDistance(dp: Int): Int {
             if (!enabled || dp == 0) return 0
@@ -365,7 +365,7 @@ object HcfUiMotion {
             return sign * maxOf(1, Math.round(kotlin.math.abs(dp) * distanceScale))
         }
 
-        fun maxStagger(base: Long): Long = maxOf(1L, Math.round(base * durationScale))
+        fun maxStagger(base: Long): Long = maxOf(1L, Math.round(base.toDouble() * durationScale.toDouble()))
 
         fun pressScale(requested: Float): Float =
             1f - ((1f - requested) * pressScaleStrength)
