@@ -51,8 +51,6 @@ import java.util.List;
 import java.util.Locale;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
-import com.google.android.play.core.install.model.UpdateAvailability;
 
 
 // ---- Consolidated from HcfUpdateEngine.java ----
@@ -308,31 +306,75 @@ final class PlayStoreUpdateChecker {
         }
 
         try {
-            AppUpdateManagerFactory.create(app).getAppUpdateInfo()
-                    .addOnSuccessListener(info -> {
-                        int availability = info.updateAvailability();
-                        boolean available = availability == UpdateAvailability.UPDATE_AVAILABLE
-                                || availability == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS;
-                        long availableCode = info.availableVersionCode();
-                        deliver(callback, new Result(
-                                available,
-                                availableCode,
-                                true,
-                                true,
-                                available ? "Update available in Google Play." : "Up to date in Google Play."));
-                    })
-                    .addOnFailureListener(error -> {
+            queryWithPlayCore(app, callback);
+        } catch (Throwable error) {
+            Throwable cause = error.getCause() == null ? error : error.getCause();
+            deliver(callback, new Result(false, -1L, true, false,
+                    "Google Play update status is unavailable • " + cause.getClass().getSimpleName()));
+        }
+    }
+
+    private static void queryWithPlayCore(final Context app, final Callback callback) throws Exception {
+        final Class<?> factoryClass = Class.forName(
+                "com.google.android.play.core.appupdate.AppUpdateManagerFactory");
+        final Class<?> infoClass = Class.forName(
+                "com.google.android.play.core.appupdate.AppUpdateInfo");
+        final Class<?> availabilityClass = Class.forName(
+                "com.google.android.play.core.install.model.UpdateAvailability");
+        final Class<?> successClass = Class.forName(
+                "com.google.android.gms.tasks.OnSuccessListener");
+        final Class<?> failureClass = Class.forName(
+                "com.google.android.gms.tasks.OnFailureListener");
+
+        Object manager = factoryClass.getMethod("create", Context.class).invoke(null, app);
+        Object task = manager.getClass().getMethod("getAppUpdateInfo").invoke(manager);
+
+        Object success = java.lang.reflect.Proxy.newProxyInstance(
+                successClass.getClassLoader(),
+                new Class<?>[]{successClass},
+                (proxy, method, args) -> {
+                    if ("onSuccess".equals(method.getName()) && args != null && args.length > 0 && args[0] != null) {
+                        try {
+                            Object info = args[0];
+                            int state = ((Number) infoClass.getMethod("updateAvailability").invoke(info)).intValue();
+                            long availableCode = ((Number) infoClass.getMethod("availableVersionCode").invoke(info)).longValue();
+                            int updateAvailable = availabilityClass.getField("UPDATE_AVAILABLE").getInt(null);
+                            int triggered = availabilityClass.getField("DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS").getInt(null);
+                            boolean available = state == updateAvailable || state == triggered;
+                            deliver(callback, new Result(
+                                    available,
+                                    availableCode,
+                                    true,
+                                    true,
+                                    available ? "Update available in Google Play." : "Up to date in Google Play."));
+                        } catch (Throwable inner) {
+                            Throwable cause = inner.getCause() == null ? inner : inner.getCause();
+                            deliver(callback, new Result(false, -1L, true, false,
+                                    "Google Play update status is unavailable • " + cause.getClass().getSimpleName()));
+                        }
+                    }
+                    return null;
+                });
+
+        Object failure = java.lang.reflect.Proxy.newProxyInstance(
+                failureClass.getClassLoader(),
+                new Class<?>[]{failureClass},
+                (proxy, method, args) -> {
+                    if ("onFailure".equals(method.getName())) {
+                        Throwable error = args != null && args.length > 0 && args[0] instanceof Throwable
+                                ? (Throwable) args[0] : null;
                         String detail = error == null ? "Unknown Play Core error"
                                 : error.getClass().getSimpleName()
                                 + (error.getMessage() == null || error.getMessage().trim().isEmpty()
                                 ? "" : ": " + error.getMessage().trim());
                         deliver(callback, new Result(false, -1L, true, false,
                                 "Google Play update status is temporarily unavailable • " + detail));
-                    });
-        } catch (Throwable error) {
-            deliver(callback, new Result(false, -1L, true, false,
-                    "Google Play update status is unavailable • " + error.getClass().getSimpleName()));
-        }
+                    }
+                    return null;
+                });
+
+        task.getClass().getMethod("addOnSuccessListener", successClass).invoke(task, success);
+        task.getClass().getMethod("addOnFailureListener", failureClass).invoke(task, failure);
     }
 
     static boolean installedFromPlay(Context context) {
