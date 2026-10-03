@@ -151,36 +151,51 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           set -euo pipefail
-          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
-            echo "DISCORD_WEBHOOK_URL is not configured in GitHub Actions secrets."
-            exit 1
-          fi
-
-          case "$DISCORD_WEBHOOK_URL" in
-            https://discord.com/api/webhooks/*|https://www.discord.com/api/webhooks/*|https://discordapp.com/api/webhooks/*|https://www.discordapp.com/api/webhooks/*) ;;
-            *)
-              echo "DISCORD_WEBHOOK_URL is not a supported Discord HTTPS webhook URL."
-              exit 1
-              ;;
-          esac
-
           GEN_DIR="$GITHUB_WORKSPACE/source code/src/com/harleytg/forum"
           TMP="$RUNNER_TEMP/hcf-discord-secret"
           mkdir -p "$TMP"
           chmod 700 "$TMP"
-          printf '%s' "$DISCORD_WEBHOOK_URL" > "$TMP/plain.txt"
-          chmod 600 "$TMP/plain.txt"
-          openssl rand 32 > "$TMP/key.bin"
-          openssl rand 16 > "$TMP/iv.bin"
-          KEY_HEX="$(xxd -p -c 256 "$TMP/key.bin")"
-          IV_HEX="$(xxd -p -c 256 "$TMP/iv.bin")"
-          openssl enc -aes-256-cbc \
-            -K "$KEY_HEX" \
-            -iv "$IV_HEX" \
-            -in "$TMP/plain.txt" \
-            -out "$TMP/cipher.bin"
 
-          python3 - "$TMP/key.bin" "$TMP/iv.bin" "$TMP/cipher.bin" "$GEN_DIR/HcfDiscordSecret.java" <<'PY'
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            cat > "$GEN_DIR/HcfDiscordSecret.java" <<'JAVA'
+          package com.harleytg.forum.dev;
+
+          /**
+           * CI-safe fallback. Discord observation is disabled when no repository
+           * secret is configured; release builds can still inject the encrypted
+           * webhook by setting DISCORD_WEBHOOK_URL.
+           */
+          public final class HcfDiscordSecret {
+              private HcfDiscordSecret() {}
+
+              public static String decrypt() {
+                  return "";
+              }
+          }
+          JAVA
+            echo "DISCORD_WEBHOOK_URL is not configured; generated a disabled CI fallback binding."
+          else
+            case "$DISCORD_WEBHOOK_URL" in
+              https://discord.com/api/webhooks/*|https://www.discord.com/api/webhooks/*|https://discordapp.com/api/webhooks/*|https://www.discordapp.com/api/webhooks/*) ;;
+              *)
+                echo "DISCORD_WEBHOOK_URL is not a supported Discord HTTPS webhook URL."
+                exit 1
+                ;;
+            esac
+
+            printf '%s' "$DISCORD_WEBHOOK_URL" > "$TMP/plain.txt"
+            chmod 600 "$TMP/plain.txt"
+            openssl rand 32 > "$TMP/key.bin"
+            openssl rand 16 > "$TMP/iv.bin"
+            KEY_HEX="$(xxd -p -c 256 "$TMP/key.bin")"
+            IV_HEX="$(xxd -p -c 256 "$TMP/iv.bin")"
+            openssl enc -aes-256-cbc \
+              -K "$KEY_HEX" \
+              -iv "$IV_HEX" \
+              -in "$TMP/plain.txt" \
+              -out "$TMP/cipher.bin"
+
+            python3 - "$TMP/key.bin" "$TMP/iv.bin" "$TMP/cipher.bin" "$GEN_DIR/HcfDiscordSecret.java" <<'PY'
           import pathlib
           import sys
 
@@ -213,13 +228,14 @@ jobs:
           '''
           out_path.write_text(source, encoding="utf-8")
           PY
+            echo "Encrypted Discord webhook binding generated for this build only."
+          fi
 
           rm -rf "$TMP"
           unset DISCORD_WEBHOOK_URL KEY_HEX IV_HEX
           test -s "$GEN_DIR/HcfDiscordSecret.java"
           ! grep -Fq 'https://discord.com/api/webhooks/' "$GEN_DIR/HcfDiscordSecret.java"
           ! grep -Fq 'https://discordapp.com/api/webhooks/' "$GEN_DIR/HcfDiscordSecret.java"
-          echo "Encrypted Discord webhook binding generated for this build only."
 
       - name: Normalize all native animation paths
         shell: bash
