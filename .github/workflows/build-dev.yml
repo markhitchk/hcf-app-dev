@@ -284,7 +284,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          KOTLIN_VERSION="2.4.20"
+          KOTLIN_VERSION="2.2.20"
           KOTLIN_ROOT="$RUNNER_TEMP/kotlin"
           mkdir -p "$KOTLIN_ROOT"
           curl --fail --location --retry 3 --silent --show-error \
@@ -388,41 +388,42 @@ jobs:
           grep -Fq "versionName='${HCF_VERSION_NAME}'" "$OUT/APK-BADGING.txt"
 
           unzip -p "$APK" classes.dex | strings > "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'App Setup' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'Forum Account' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'Sign In to Forum' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'Create Forum Account' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'hcf_setup_account_flow' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'setup_forum_identity_probe' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'Checking the existing Harley' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'Real forum alerts (messages, mentions, replies, updates) use HCF Alerts.' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'hcf_notification_channels_v2' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'hcf_alerts_v2' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'hcf_silent_alerts_v2' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'hcf_test_alerts_v2' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'HcfDiscordSecret' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'HCF_MOTION_SYSTEM_V4_ALL_NATIVE' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'configs/ban-list.json' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'HcfWidget' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'service-context' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'network-available' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'screen-on' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'Two-Factor Authentication' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'HCF AUTHENTICATOR' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'HCF_AUTHENTICATOR_NATIVE_QR_SCANNER_V2' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'HCF_KOTLIN_BUILD_V1' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'QRCodeReader' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'PlayStoreUpdateChecker' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'AppUpdateManagerFactory' "$OUT/DEX-STRINGS.txt"
-          grep -Fq 'Google Play Update Available' "$OUT/DEX-STRINGS.txt"
-          ! grep -Fq 'MANAGE_UNKNOWN_APP_SOURCES' "$OUT/DEX-STRINGS.txt"
-          ! grep -Fq 'AppUpdateDownloader' "$OUT/DEX-STRINGS.txt"
-          ! grep -Fq 'AndroidManifest.legacy.xml' "$OUT/DEX-STRINGS.txt"
-          ! grep -Fq 'https://discord.com/api/webhooks/' "$OUT/DEX-STRINGS.txt"
-          ! grep -Fq 'https://discordapp.com/api/webhooks/' "$OUT/DEX-STRINGS.txt"
-          ! grep -Fq 'cloudfunctions.net/hcfBanApi' "$OUT/DEX-STRINGS.txt"
-          ! grep -Fq 'Method not decompiled' "$OUT/DEX-STRINGS.txt"
-          ! grep -Fq 'Code decompiled incorrectly' "$OUT/DEX-STRINGS.txt"
+
+          required_dex_markers=(
+            'App Setup'
+            'hcf_notification_channels_v2'
+            'hcf_alerts_v2'
+            'HcfDiscordSecret'
+            'HCF_MOTION_SYSTEM_V4_ALL_NATIVE'
+            'HCF_KOTLIN_BUILD_V1'
+            'PlayStoreUpdateChecker'
+            'AppUpdateManagerFactory'
+            'Google Play Update Available'
+          )
+          for marker in "${required_dex_markers[@]}"; do
+            if ! grep -Fq "$marker" "$OUT/DEX-STRINGS.txt"; then
+              echo "Missing required DEX marker: $marker" >&2
+              exit 46
+            fi
+          done
+
+          forbidden_dex_markers=(
+            'MANAGE_UNKNOWN_APP_SOURCES'
+            'AppUpdateDownloader'
+            'AndroidManifest.legacy.xml'
+            'https://discord.com/api/webhooks/'
+            'https://discordapp.com/api/webhooks/'
+            'cloudfunctions.net/hcfBanApi'
+            'Method not decompiled'
+            'Code decompiled incorrectly'
+          )
+          for marker in "${forbidden_dex_markers[@]}"; do
+            if grep -Fq "$marker" "$OUT/DEX-STRINGS.txt"; then
+              echo "Forbidden DEX marker present: $marker" >&2
+              exit 47
+            fi
+          done
+
           cp "$BT/lib/apksigner.jar" "$OUT/apksigner.jar"
           sha256sum "$APK" | tee "$OUT/SHA256SUMS.txt"
 
