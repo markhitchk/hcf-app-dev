@@ -2012,7 +2012,7 @@ public final class HcfForum {
                     MainActivity.this.liveUpdater.poke();
                 }
                 if ("OFFLINE".equals(str)) {
-                    boolean legacyReconnectVisible = MainActivity.this.statusOverlay != null
+                    boolean existingReconnectVisible = MainActivity.this.statusOverlay != null
                             && MainActivity.this.statusOverlay.getVisibility() == 0;
                     String reconnectHost = MainActivity.this.activeHost == null
                             ? MainActivity.this.chooseInitialHost() : MainActivity.this.activeHost;
@@ -2027,7 +2027,7 @@ public final class HcfForum {
                     }
                     MainActivity.this.showTransientBanner("Connection restored • syncing forum…");
                     if (MainActivity.this.webView == null
-                            || (MainActivity.this.brandedLoader == null && !legacyReconnectVisible)) {
+                            || (MainActivity.this.brandedLoader == null && !existingReconnectVisible)) {
                         return;
                     }
                     WebView webView = MainActivity.this.webView;
@@ -2608,9 +2608,6 @@ public final class HcfForum {
         private void requestUpdateInstallPermissionIfNeeded() {
             this.prefs.edit()
                     .putBoolean("permission_onboarding_done", true)
-                    .putBoolean("update_auto_download", false)
-                    .putBoolean("update_auto_install", false)
-                    .remove("update_resume_after_permission")
                     .apply();
         }
 
@@ -2618,9 +2615,6 @@ public final class HcfForum {
         /* synthetic */ void m81xaecf68f0(DialogInterface dialogInterface, int i) {
             this.prefs.edit()
                     .putBoolean("permission_onboarding_done", true)
-                    .putBoolean("update_auto_download", false)
-                    .putBoolean("update_auto_install", false)
-                    .remove("update_resume_after_permission")
                     .apply();
         }
 
@@ -2628,9 +2622,6 @@ public final class HcfForum {
         /* synthetic */ void m82xc2773c71(DialogInterface dialogInterface, int i) {
             this.prefs.edit()
                     .putBoolean("permission_onboarding_done", true)
-                    .putBoolean("update_auto_download", false)
-                    .putBoolean("update_auto_install", false)
-                    .remove("update_resume_after_permission")
                     .apply();
         }
 
@@ -2665,11 +2656,6 @@ public final class HcfForum {
 
         public void startNativeUpdateFlow() {
             if (isFinishing() || isDestroyed()) return;
-            prefs.edit()
-                    .putBoolean("update_auto_download", false)
-                    .putBoolean("update_auto_install", false)
-                    .remove("update_resume_after_permission")
-                    .apply();
             try {
                 Intent market = new Intent(Intent.ACTION_VIEW,
                         Uri.parse("market://details?id=" + getPackageName()));
@@ -3925,9 +3911,7 @@ public final class HcfForum {
         }
 
         private void resumeUpdateInstallPermissionIfNeeded() {
-            if (this.prefs != null) {
-                this.prefs.edit().remove("update_resume_after_permission").apply();
-            }
+            // Google Play owns update installation; there is no installer permission to resume.
         }
 
         @Override // android.app.Activity
