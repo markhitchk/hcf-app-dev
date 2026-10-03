@@ -102,4 +102,4 @@ Google Play builds use Google's official Play In-App Updates API
 (`com.google.android.play:app-update:2.1.0`) to query the Play Store for the
 installed account and release track. App Settings shows **Google Play Update Available**
 when Play reports a newer build and otherwise shows that the installed build is up to
-date. There is no separate legacy/sideload updater.
+date.
