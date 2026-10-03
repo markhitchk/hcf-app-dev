@@ -3,8 +3,9 @@ from pathlib import Path
 import sys
 
 root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[2]
-manifest = (root / "source code" / "AndroidManifest.xml").read_text(encoding="utf-8")
-engine = (root / "source code" / "src" / "com" / "harleytg" / "forum" / "HcfNotifications.java").read_text(encoding="utf-8")
+source = root if (root / "AndroidManifest.xml").is_file() else root / "source code"
+manifest = (source / "AndroidManifest.xml").read_text(encoding="utf-8")
+engine = (source / "src" / "com" / "harleytg" / "forum" / "HcfNotifications.java").read_text(encoding="utf-8")
 
 for forbidden in (
     "android.permission.FOREGROUND_SERVICE",
@@ -22,7 +23,7 @@ if "scheduled jobs + one-shot sync" not in engine:
 if "context.startForegroundService(intent)" in engine:
     if "DistributionMode.legacySystem(context)" not in engine:
         raise SystemExit("Foreground-service startup is not gated behind legacy distribution mode")
-    legacy_manifest = (root / "source code" / "AndroidManifest.legacy.xml").read_text(encoding="utf-8")
+    legacy_manifest = (source / "AndroidManifest.legacy.xml").read_text(encoding="utf-8")
     for required in (
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
