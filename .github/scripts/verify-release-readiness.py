@@ -111,25 +111,35 @@ require("README internal build mismatch", f"Internal build: `{EXPECTED_INTERNAL_
 require("brand spelling regression", "Harley's Studios" in build_info and "Harley&apos;s Studios" in manifest)
 require("obsolete brand spelling remains", "Harley's Studio's" not in build_info and "Studio&apos;s" not in manifest)
 
-expected_java_files = {
+expected_runtime_files = {
     "HcfCore.java",
     "HcfPlatform.java",
     "HcfUpdates.java",
     "HcfNotifications.java",
     "HcfForum.java",
     "HcfUI.java",
-    "HcfWidget.java",
-    "HcfBanDevTools.java",
-    "HcfDrawerQol.java",
+    "HcfWidget.kt",
+    "HcfBanDevTools.kt",
+    "HcfDrawerQol.kt",
 }
-actual_java_files = {p.name for p in (source / "src/com/harleytg/forum").glob("*.java")}
-require("Java runtime source set mismatch", actual_java_files == expected_java_files)
-for java_file in expected_java_files:
-    class_name = java_file.removesuffix(".java")
-    require(
-        f"public consolidated source host missing: {class_name}",
-        f"public final class {class_name}" in text(java_source / java_file),
-    )
+actual_runtime_files = {
+    p.name for p in (source / "src/com/harleytg/forum").iterdir()
+    if p.is_file() and p.suffix in {".java", ".kt"} and p.name != "HcfKotlinBuildMarker.kt"
+}
+require("Android runtime source set mismatch", actual_runtime_files == expected_runtime_files)
+for runtime_file in expected_runtime_files:
+    class_name = Path(runtime_file).stem
+    body = text(java_source / runtime_file)
+    if runtime_file.endswith(".java"):
+        require(
+            f"public consolidated source host missing: {class_name}",
+            f"public final class {class_name}" in body,
+        )
+    else:
+        require(
+            f"Kotlin consolidated source host missing: {class_name}",
+            f"object {class_name}" in body,
+        )
 require("URL-bar back button missing", 'android:id="@+id/urlBackButton"' in text(source / "res/layout/activity_main.xml"))
 require("widget app-theme preference missing", 'WIDGET_FOLLOW_APP_THEME = "widget_follow_app_theme"' in app_prefs)
 require("widget root settings category missing", '"Home-screen Widget"' in ui_source and '"Follow HCF app theme"' in ui_source)
