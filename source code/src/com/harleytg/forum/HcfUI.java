@@ -1531,7 +1531,7 @@ final class ThemeManager {
     private static final String FORUM_AUTO = "auto";
     private static final String FORUM_DARK = "dark";
     private static final String FORUM_LIGHT = "light";
-    private static final String LEGACY_SYSTEM = "system";
+    private static final String OLD_SYSTEM_THEME = "system";
     static final String LIGHT = "light";
     static final String SYSTEM = "auto_forum";
 
@@ -1635,7 +1635,7 @@ final class ThemeManager {
         try {
             sharedPreferences = context.getSharedPreferences("hcf_app", 0);
             String string = sharedPreferences.getString("app_theme", DARK);
-            if (!LEGACY_SYSTEM.equals(string)) {
+            if (!OLD_SYSTEM_THEME.equals(string)) {
                 return (AUTO_FORUM.equals(string) || AUTO_PHONE.equals(string) || LIGHT.equals(string)
                         || DARK.equals(string) || AMOLED.equals(string)) ? string : DARK;
             }
@@ -1666,7 +1666,7 @@ final class ThemeManager {
         if (!"dark".equals(lowerCase) && !"night".equals(lowerCase) && !"2".equals(lowerCase)) {
             str2 = FORUM_LIGHT;
             if (!"light".equals(lowerCase) && !"day".equals(lowerCase) && !"1".equals(lowerCase)) {
-                if (!FORUM_AUTO.equals(lowerCase) && !LEGACY_SYSTEM.equals(lowerCase)
+                if (!FORUM_AUTO.equals(lowerCase) && !OLD_SYSTEM_THEME.equals(lowerCase)
                         && !"phone".equals(lowerCase) && !"0".equals(lowerCase)) return false;
                 str2 = FORUM_AUTO;
             }
@@ -1712,7 +1712,7 @@ final class ThemeManager {
     }
 
     static String next(String str) {
-        return (AUTO_FORUM.equals(str) || LEGACY_SYSTEM.equals(str)) ? AUTO_PHONE
+        return (AUTO_FORUM.equals(str) || OLD_SYSTEM_THEME.equals(str)) ? AUTO_PHONE
                 : AUTO_PHONE.equals(str) ? LIGHT
                 : LIGHT.equals(str) ? DARK
                 : DARK.equals(str) ? AMOLED
