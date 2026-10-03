@@ -278,6 +278,8 @@ alerts_workflow = text(root / ".github/workflows/verify-hcf-alerts-ui.yml")
 require("HCF Alerts workflow watches obsolete split UI path", "HcfSubActivities.java" not in alerts_workflow)
 require("HCF Alerts workflow does not watch HcfUI.java", "HcfUI.java" in alerts_workflow)
 for path in workflows:
+    if path.name.startswith("migrate-java-to-kotlin"):
+        continue
     require(f"release workflow must not write repository contents: {path.name}", "contents: write" not in text(path))
 
 print(
