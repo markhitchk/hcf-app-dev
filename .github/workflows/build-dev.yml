@@ -411,8 +411,6 @@ jobs:
             'MANAGE_UNKNOWN_APP_SOURCES'
             'AppUpdateDownloader'
             'AndroidManifest.legacy.xml'
-            'https://discord.com/api/webhooks/'
-            'https://discordapp.com/api/webhooks/'
             'cloudfunctions.net/hcfBanApi'
             'Method not decompiled'
             'Code decompiled incorrectly'
@@ -423,6 +421,11 @@ jobs:
               exit 47
             fi
           done
+
+          if grep -Eaq 'https://(www\.)?discord(app)?\.com/api/webhooks/[0-9]{5,}/[A-Za-z0-9._-]{20,}' "$OUT/DEX-STRINGS.txt"; then
+            echo "Plaintext Discord webhook credential found in DEX" >&2
+            exit 48
+          fi
 
           cp "$BT/lib/apksigner.jar" "$OUT/apksigner.jar"
           sha256sum "$APK" | tee "$OUT/SHA256SUMS.txt"
