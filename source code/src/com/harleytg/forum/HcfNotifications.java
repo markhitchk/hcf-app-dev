@@ -484,8 +484,6 @@ public final class HcfNotifications {
         @Override // android.content.BroadcastReceiver
         public void onReceive(Context context, Intent intent) {
             if (intent != null && "android.intent.action.MY_PACKAGE_REPLACED".equals(intent.getAction())) {
-                AppUpdateDownloader.cleanupAfterSuccessfulUpdate(context);
-                AppUpdateDownloader.cleanupStaleUpdaterApks(context);
                 TelemetryService.sendEvent(context, "update_installed", BuildInfo.installedVersionName());
             }
             NotificationSyncScheduler.apply(context);
@@ -1096,59 +1094,6 @@ if (z) {
             if (manager != null) manager.notify(51003, builder.build());
         } catch (Throwable error) {
             AppLogger.warn(context, "play_store_update_notification", error.getClass().getSimpleName());
-        }
-    }
-
-    static void postUpdateAvailable(Context context, UpdateChecker.Release release) {
-        String str;
-        createChannel(context);
-        if (hasRuntimePermission(context) && areAppNotificationsEnabled(context)) {
-            try {
-                Intent intent = new Intent(context, (Class<?>) HcfSubActivities.SettingsActivity.class);
-                intent.addFlags(335544320);
-                PendingIntent activity = PendingIntent.getActivity(context, 51001, intent, 201326592);
-                Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID);
-                Notification.Builder contentTitle = builder.setSmallIcon(R.drawable.ic_notification_paw).setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.drawable.htg_app_logo)).setContentTitle("Beta update available");
-                StringBuilder sb = new StringBuilder("v");
-                sb.append(UpdateChecker.displayVersion(release));
-                if (release == null || release.versionCode <= 0) {
-                    str = "";
-                } else {
-                    str = " • build " + release.versionCode;
-                }
-                sb.append(str);
-                sb.append(release != null && release.sameVersionHashUpdate
-                        ? " is a revised Dev/Beta APK (new SHA-256)."
-                        : " is ready for Dev/Beta.");
-                contentTitle.setContentText(sb.toString()).setContentIntent(activity).setAutoCancel(true).setCategory("sys").setVisibility(0).setPriority(0);
-                NotificationManager notificationManager = (NotificationManager) context.getSystemService("notification");
-                if (notificationManager != null) {
-                    notificationManager.notify(51001, builder.build());
-                }
-            } catch (Throwable th) {
-                AppLogger.error(context, "update_notification", th.getClass().getSimpleName());
-            }
-        }
-    }
-
-    static void postUpdateReady(Context context, String str, long j) {
-        createChannel(context);
-        if (hasRuntimePermission(context) && areAppNotificationsEnabled(context)) {
-            try {
-                Intent intent = new Intent(context, (Class<?>) HcfSubActivities.SettingsActivity.class);
-                intent.setAction("com.harleytg.forum.dev.INSTALL_UPDATE");
-                intent.putExtra("download_id", j);
-                intent.addFlags(335544320);
-                PendingIntent activity = PendingIntent.getActivity(context, 51002, intent, 201326592);
-                Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID);
-                builder.setSmallIcon(R.drawable.ic_notification_paw).setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.drawable.htg_app_logo)).setContentTitle("Update downloaded").setContentText(trim(str, 80, "Update") + " is ready to install.").setContentIntent(activity).setAutoCancel(true).setCategory("sys").setVisibility(0).setPriority(1);
-                NotificationManager notificationManager = (NotificationManager) context.getSystemService("notification");
-                if (notificationManager != null) {
-                    notificationManager.notify(51002, builder.build());
-                }
-            } catch (Throwable th) {
-                AppLogger.error(context, "update_ready_notification", th.getClass().getSimpleName());
-            }
         }
     }
 
