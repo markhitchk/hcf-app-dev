@@ -43,7 +43,7 @@ def replace_interpolators(text: str, stats: Stats) -> str:
         (r"new\s+(?:android\.view\.animation\.)?LinearInterpolator\s*\(\s*\)",
          "HcfMotionSystem.linear()"),
         # Existing hand-authored cubic curves are deliberately collapsed into the
-        # app-wide emphasized curve. HcfMotionSystem.java itself is excluded.
+        # app-wide emphasized curve. the HcfMotionSystem policy itself is excluded.
         (r"new\s+(?:android\.view\.animation\.)?PathInterpolator\s*\([^)]*\)",
          "HcfMotionSystem.emphasized()"),
     ]
@@ -212,9 +212,14 @@ def main() -> None:
     if not java_root.is_dir():
         raise SystemExit(f"Java source root not found: {java_root}")
 
-    policy = java_root / "com/harleytg/forum/motion/HcfMotionSystem.java"
+    policy_java = java_root / "com/harleytg/forum/motion/HcfMotionSystem.java"
+    policy_kotlin = java_root / "com/harleytg/forum/motion/HcfMotionSystem.kt"
+    policy = policy_java if policy_java.is_file() else policy_kotlin
     if not policy.is_file():
-        raise SystemExit(f"HcfMotionSystem missing: {policy}")
+        raise SystemExit(
+            "HcfMotionSystem missing: expected "
+            f"{policy_java} or {policy_kotlin}"
+        )
 
     stats = Stats()
     for path in sorted(java_root.rglob("*.java")):
