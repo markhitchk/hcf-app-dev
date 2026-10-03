@@ -85,7 +85,8 @@ require("wrong Dev package", f'package="{EXPECTED_PACKAGE}"' in manifest)
 require("wrong minimum SDK", 'android:minSdkVersion="26"' in manifest)
 require("wrong target SDK", 'android:targetSdkVersion="36"' in manifest)
 require("wrong compile SDK", 'android:compileSdkVersion="36"' in manifest)
-require("Play Store distribution marker missing", 'com.harleytg.LEGACY_SYSTEM" android:value="false"' in manifest)
+require("legacy distribution marker remains", "com.harleytg.LEGACY_SYSTEM" not in manifest)
+require("legacy Android manifest remains", not (source / "AndroidManifest.legacy.xml").exists())
 require("Play update checker missing", "final class PlayStoreUpdateChecker" in updates_source)
 require("official Play app-update API missing", "com.google.android.play.core.appupdate.AppUpdateManagerFactory" in updates_source and "getAppUpdateInfo" in updates_source)
 require("Play UpdateAvailability check missing", "com.google.android.play.core.install.model.UpdateAvailability" in updates_source and "UPDATE_AVAILABLE" in updates_source and "DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS" in updates_source)
@@ -254,13 +255,11 @@ require("canonical main-branch App Links source missing", "blob/main/configs/app
 require("primary App Link missing", 'android:host="forum.harleytg.com"' in manifest)
 require("backup App Link missing", 'android:host="harleysclan.freeflarum.com"' in manifest)
 
-for key in ("UPDATE_DOWNLOAD_SHA256", "UPDATE_DOWNLOAD_VERSION_CODE", "UPDATE_DOWNLOAD_LABEL"):
-    require(f"missing update preference {key}", key in app_prefs)
-require("same-version hash comparison missing", "sameVersionHashUpdate" in update_checker)
-require("release APK hash computation missing", "fileSha256(apk)" in update_checker)
-require("downloaded APK hash verification missing", "APK SHA-256 does not match" in app_security)
-require("download SHA-256 persistence missing", "UPDATE_DOWNLOAD_SHA256" in downloader)
-require("download retry cleanup missing", "Failed, missing, or superseded downloads" in downloader)
+require("Play update checker missing", "final class PlayStoreUpdateChecker" in updates_source)
+require("Play update settings action missing", "Check Google Play for Updates" in ui_source)
+require("unknown-source installer UI remains", "MANAGE_UNKNOWN_APP_SOURCES" not in ui_source and "MANAGE_UNKNOWN_APP_SOURCES" not in main_activity)
+require("legacy distribution runtime remains", "DistributionMode" not in core_source and "DistributionMode" not in ui_source and "DistributionMode" not in main_activity and "DistributionMode" not in updates_source)
+require("legacy foreground startup remains", "startForegroundService(intent)" not in notifications_source)
 
 require("real alert fallback is still tied to Silent Alerts", "generic notification summary" not in notification_helper)
 require("real alert fallback is not on HCF Alerts", "new Notification.Builder(context, CHANNEL_ID)" in notification_helper and ".setGroup(FORUM_GROUP_KEY)" in notification_helper)
@@ -284,5 +283,5 @@ for path in workflows:
 
 print(
     "Release readiness verification: PASS "
-    f"({EXPECTED_PACKAGE} v{version_code}, internal {EXPECTED_INTERNAL_BUILD}, SHA-256 updater + ban gate + private ban diagnostic + drawer forum QoL + session persistence + native settings URL + settings transfer + setup completion guard + adaptive desktop/DeX mode enabled)"
+    f"({EXPECTED_PACKAGE} v{version_code}, internal {EXPECTED_INTERNAL_BUILD}, Google Play updates + ban gate + private ban diagnostic + drawer forum QoL + session persistence + native settings URL + settings transfer + setup completion guard + adaptive desktop/DeX mode enabled)"
 )
