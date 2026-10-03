@@ -37,7 +37,6 @@
         android:appCategory="social">
         <meta-data android:name="com.harleytg.BRAND" android:value="Harley&apos;s Studios"/>
         <meta-data android:name="com.harleytg.BUILD_CHANNEL" android:value="dev"/>
-        <meta-data android:name="com.harleytg.LEGACY_SYSTEM" android:value="false"/>
         <meta-data android:name="com.harleytg.APP_VERSION" android:value="1.2 (100000129)"/>
         <meta-data android:name="com.harleytg.APP_VERSION_CODE" android:value="100000129"/>
         <meta-data android:name="com.harleytg.APP_TYPE" android:value="Native Android Application"/>
