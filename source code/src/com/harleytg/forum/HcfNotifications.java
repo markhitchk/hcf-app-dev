@@ -135,21 +135,12 @@ public final class HcfNotifications {
 
         static void start(Context context) {
             if (context == null || NotificationHelper.silencePassiveEnabled(context) || !hasSession(context)) return;
-            if (DistributionMode.legacySystem(context)) startWithAction(context, null);
-            else requestOneShotSync(context);
+            requestOneShotSync(context);
         }
 
         static void requestImmediateSync(Context context) {
             if (context == null || NotificationHelper.silencePassiveEnabled(context) || !hasSession(context)) return;
-            if (DistributionMode.legacySystem(context)) {
-                if (context instanceof InstantNotificationService) {
-                    ((InstantNotificationService) context).requestImmediateSyncLocal("service-context");
-                } else {
-                    startWithAction(context, ACTION_SYNC_NOW);
-                }
-            } else {
-                requestOneShotSync(context);
-            }
+            requestOneShotSync(context);
         }
 
         private void requestImmediateSyncLocal(String source) {
@@ -196,25 +187,8 @@ public final class HcfNotifications {
         }
 
         private static void startWithAction(Context context, String action) {
-            if (context == null) return;
-            SharedPreferences prefs = context.getSharedPreferences("hcf_app", 0);
-            if (NotificationHelper.silencePassiveEnabled(context)
-                    || !prefs.getBoolean("background_notification_sync", true)
-                    || !hasSession(context)) return;
-
-            if (!DistributionMode.legacySystem(context)) {
-                requestOneShotSync(context);
-                return;
-            }
-
-            try {
-                Intent intent = new Intent(context, InstantNotificationService.class);
-                if (action != null) intent.setAction(action);
-                if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent);
-                else context.startService(intent);
-            } catch (Throwable t) {
-                AppLogger.warn(context, "instant_notification_service", "legacy start blocked | " + t.getClass().getSimpleName());
-            }
+            if (context == null || NotificationHelper.silencePassiveEnabled(context) || !hasSession(context)) return;
+            requestOneShotSync(context);
         }
 
         static void stop(Context context) {
@@ -1364,16 +1338,12 @@ final class NotificationSyncScheduler {
                 HcfNotifications.InstantNotificationService.stop(context, "silent-alerts-silenced");
                 NotificationHelper.cancelOptionalSilentAlerts(context);
             }
+
             schedule(context);
 
             if (signedIn && !silent) {
-                if (DistributionMode.legacySystem(context)) {
-                    HcfNotifications.InstantNotificationService.start(context);
-                    AppLogger.info(context, "notification_sync_mode", "legacy foreground live sync + scheduled fallback");
-                } else {
-                    HcfNotifications.InstantNotificationService.requestImmediateSync(context);
-                    AppLogger.info(context, "notification_sync_mode", "scheduled jobs + one-shot sync • signed-in");
-                }
+                HcfNotifications.InstantNotificationService.requestImmediateSync(context);
+                AppLogger.info(context, "notification_sync_mode", "scheduled jobs + one-shot sync • signed-in");
             } else {
                 HcfNotifications.InstantNotificationService.stop(context, signedIn ? "silent-alerts-silenced" : "signed-out");
                 AppLogger.info(context, "notification_sync_mode",
