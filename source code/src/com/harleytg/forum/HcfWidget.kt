@@ -220,7 +220,7 @@ object HcfWidget {
                 setPadding(dp(18), dp(16), dp(18), dp(28))
                 setBackgroundColor(Color.rgb(13, 16, 20))
             }
-            scroll.addView(root, ScrollView.LayoutParams(-1, -2))
+            scroll.addView(root, android.view.ViewGroup.LayoutParams(-1, -2))
             root.addView(label("Home-screen Widget", 22, true), matchWrap())
             root.addView(label(
                 "Appearance, refresh, preview and tap behavior for HCF widgets.",
@@ -464,7 +464,7 @@ object HcfWidget {
                 orientation = LinearLayout.VERTICAL
                 setPadding(0, dp(10), 0, dp(20))
             }
-            scroll.addView(list, ScrollView.LayoutParams(-1, -2))
+            scroll.addView(list, android.view.ViewGroup.LayoutParams(-1, -2))
             root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
             return root
         }
