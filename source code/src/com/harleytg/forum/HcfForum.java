@@ -171,7 +171,6 @@ public final class HcfForum {
     public static class MainActivity extends ThemedActivity {
         private static final int FILE_CHOOSER_REQUEST = 1407;
         private static final int NOTIFICATION_PERMISSION_REQUEST = 1408;
-        private static final int UPDATE_INSTALL_PERMISSION_REQUEST = 1409;
         private String activeHost;
         private HcfBrandedLoader brandedLoader;
         private Button alternateButton;
@@ -237,8 +236,6 @@ public final class HcfForum {
         private TextView liveStatusBadge;
         private LiveForumUpdater liveUpdater;
         private boolean mainFrameLoadFailed;
-        private AlertDialog nativeUpdateDialog;
-        private boolean nativeUpdateFlowActive;
         private ConnectivityManager.NetworkCallback networkCallback;
         private boolean networkCallbackRegistered;
         private boolean notificationReceiverRegistered;
@@ -269,7 +266,6 @@ public final class HcfForum {
         private String identityAvatarRequestedUrl = "";
         private String identityAvatarLoadedUrl = "";
         private final Handler mainHandler = new Handler(Looper.getMainLooper());
-        private long nativeUpdateDownloadId = -1;
         private String liveState = "SYNCING";
         private String lastRecoverableUrl = "";
         private String appliedThemeSignature = "";
@@ -538,8 +534,8 @@ public final class HcfForum {
                 UpdateScheduler.apply(this);
                 UpdateAutomation.maybeCheck(this, false, new UpdateAutomation.Listener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda65
                     @Override // com.harleytg.forum.dev.UpdateAutomation.Listener
-                    public final void onFinished(UpdateChecker.Release release, boolean z, String str) {
-                        MainActivity.this.m83xf91988ae(release, z, str);
+                    public final void onFinished(PlayStoreUpdateChecker.Result result, boolean z, String str) {
+                        MainActivity.this.m83xf91988ae(result, z, str);
                     }
                 });
                 TelemetryService.handlePendingCrash(this);
@@ -550,11 +546,9 @@ public final class HcfForum {
         }
 
         /* renamed from: lambda$scheduleDeferredNativeSetup$0$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
-        /* synthetic */ void m83xf91988ae(UpdateChecker.Release release, boolean z, String str) {
-            if (!z || release == null || isFinishing() || isDestroyed()) {
-                return;
-            }
-            showBetaUpdateAvailableDialog(release);
+        /* synthetic */ void m83xf91988ae(PlayStoreUpdateChecker.Result result, boolean updateAvailable, String message) {
+            if (!updateAvailable || result == null || isFinishing() || isDestroyed()) return;
+            showPlayStoreUpdateAvailableDialog(result);
         }
 
         private void showCrashSafeScreen(Throwable th) {
@@ -2657,30 +2651,21 @@ public final class HcfForum {
             return "/install".equals(lowerCase) || lowerCase.startsWith("/install/");
         }
 
-        private void showBetaUpdateAvailableDialog(UpdateChecker.Release release) {
+        private void showPlayStoreUpdateAvailableDialog(PlayStoreUpdateChecker.Result result) {
             if (isFinishing() || isDestroyed()) return;
+            String version = result != null && result.availableVersionCode > 0
+                    ? "\nAvailable build: " + result.availableVersionCode : "";
             new AlertDialog.Builder(this)
                     .setTitle("Google Play Update Available")
-                    .setMessage("A newer Harley's Clan Forum build is available through Google Play.")
+                    .setMessage("A newer Harley's Clan Forum build is available through Google Play." + version)
                     .setNegativeButton("Later", (DialogInterface.OnClickListener) null)
-                    .setPositiveButton("Open Google Play", new DialogInterface.OnClickListener() {
-                        @Override public void onClick(DialogInterface dialogInterface, int i) {
-                            MainActivity.this.m86xf46525d5(dialogInterface, i);
-                        }
-                    }).show();
+                    .setPositiveButton("Open Google Play", (dialog, which) -> startNativeUpdateFlow())
+                    .show();
         }
 
-        /* renamed from: lambda$showBetaUpdateAvailableDialog$55$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
-        /* synthetic */ void m86xf46525d5(DialogInterface dialogInterface, int i) {
-            startNativeUpdateFlow();
-        }
-
-        /* JADX INFO: Access modifiers changed from: private */
         public void startNativeUpdateFlow() {
             if (isFinishing() || isDestroyed()) return;
-            this.nativeUpdateFlowActive = false;
-            this.nativeUpdateDownloadId = -1L;
-            this.prefs.edit()
+            prefs.edit()
                     .putBoolean("update_auto_download", false)
                     .putBoolean("update_auto_install", false)
                     .remove("update_resume_after_permission")
@@ -2701,173 +2686,6 @@ public final class HcfForum {
                     AppLogger.warn(this, "update_route", second.getClass().getSimpleName());
                 }
             }
-        }
-
-        /* renamed from: lambda$startNativeUpdateFlow$56$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
-        /* synthetic */ void m109x6d485c01(DialogInterface dialogInterface, int i) {
-            this.nativeUpdateFlowActive = false;
-        }
-
-        /* renamed from: lambda$startNativeUpdateFlow$57$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
-        /* synthetic */ void m110x80f02f82(DialogInterface dialogInterface) {
-            if (this.nativeUpdateDownloadId <= 0) {
-                this.nativeUpdateFlowActive = false;
-            }
-        }
-
-        /* JADX INFO: Access modifiers changed from: private */
-        public void showNativeUpdateDownload(UpdateChecker.Release release, long j) {
-            String str;
-            AlertDialog alertDialog = this.nativeUpdateDialog;
-            if (alertDialog != null) {
-                try {
-                    alertDialog.dismiss();
-                } catch (Throwable unused) {
-                }
-            }
-            LinearLayout linearLayout = new LinearLayout(this);
-            linearLayout.setOrientation(1);
-            int dp = dp(20);
-            linearLayout.setPadding(dp, dp(12), dp, dp(8));
-            TextView textView = new TextView(this);
-            StringBuilder sb = new StringBuilder("Installed: v1.0 (" + BuildInfo.VERSION_CODE + ")\nAvailable: v");
-            sb.append(UpdateChecker.displayVersion(release));
-            if (release.versionCode > 0) {
-                str = " (" + release.versionCode + ")";
-            } else {
-                str = "";
-            }
-            sb.append(str);
-            textView.setText(sb.toString());
-            textView.setTextColor(getColor(R.color.hcf_text));
-            textView.setTextSize(13.0f);
-            linearLayout.addView(textView, new LinearLayout.LayoutParams(-1, -2));
-            ProgressBar progressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-            progressBar.setMax(100);
-            progressBar.setIndeterminate(true);
-            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, dp(18));
-            layoutParams.topMargin = dp(14);
-            linearLayout.addView(progressBar, layoutParams);
-            TextView textView2 = new TextView(this);
-            textView2.setText("Starting download…");
-            textView2.setTextColor(getColor(R.color.hcf_muted));
-            textView2.setTextSize(12.0f);
-            LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
-            layoutParams2.topMargin = dp(8);
-            linearLayout.addView(textView2, layoutParams2);
-            AlertDialog create = new AlertDialog.Builder(this).setTitle("Downloading update").setView(linearLayout).setNegativeButton("Hide", (DialogInterface.OnClickListener) null).create();
-            this.nativeUpdateDialog = create;
-            create.setCanceledOnTouchOutside(false);
-            this.nativeUpdateDialog.setOnDismissListener(new DialogInterface.OnDismissListener() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda0
-                @Override // android.content.DialogInterface.OnDismissListener
-                public final void onDismiss(DialogInterface dialogInterface) {
-                    MainActivity.lambda$showNativeUpdateDownload$58(dialogInterface);
-                }
-            });
-            this.nativeUpdateDialog.show();
-            pollNativeUpdateDownload(release, j, progressBar, textView2);
-        }
-
-        private void pollNativeUpdateDownload(final UpdateChecker.Release release, final long j, final ProgressBar progressBar, final TextView textView) {
-            String str;
-            if (j <= 0) {
-                return;
-            }
-            AppUpdateDownloader.ProgressSnapshot progress = AppUpdateDownloader.progress(this, j);
-            int percent = progress.percent();
-            if (percent >= 0) {
-                progressBar.setIndeterminate(false);
-                progressBar.setProgress(percent);
-            } else {
-                progressBar.setIndeterminate(true);
-            }
-            String formatUpdateBytes = formatUpdateBytes(progress.downloadedBytes);
-            String formatUpdateBytes2 = progress.totalBytes > 0 ? formatUpdateBytes(progress.totalBytes) : "unknown size";
-            if (progress.status == 8) {
-                progressBar.setIndeterminate(false);
-                progressBar.setProgress(100);
-                textView.setText("Download complete • verifying APK…");
-                AppSecurity.ApkVerification verifyDownloadedUpdate = AppSecurity.verifyDownloadedUpdate(this, j);
-                if (!verifyDownloadedUpdate.ok) {
-                    ErrorSystem.AppError updateVerification = ErrorSystem.updateVerification(verifyDownloadedUpdate.message);
-                    textView.setText(updateVerification.code + " • " + updateVerification.title + "\n" + updateVerification.message + "\n\n" + verifyDownloadedUpdate.message);
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(updateVerification.code);
-                    sb.append(" | ");
-                    sb.append(verifyDownloadedUpdate.message);
-                    AppLogger.error(this, "update_verification", sb.toString());
-                    this.nativeUpdateFlowActive = false;
-                    this.nativeUpdateDownloadId = -1L;
-                    return;
-                }
-                textView.setText("Verified • opening Android installer…");
-                continueInstallAfterVerification(j, verifyDownloadedUpdate.message);
-                return;
-            }
-            if (progress.status == 16) {
-                ErrorSystem.AppError updateDownloadFailure = ErrorSystem.updateDownloadFailure(progress.reason);
-                textView.setText(updateDownloadFailure.code + " • " + updateDownloadFailure.title + "\n" + updateDownloadFailure.message + "\n\nOpen /install to retry.");
-                StringBuilder sb2 = new StringBuilder();
-                sb2.append(updateDownloadFailure.code);
-                sb2.append(" | ");
-                sb2.append(updateDownloadFailure.technical);
-                AppLogger.error(this, "update_download_failed", sb2.toString());
-                this.nativeUpdateFlowActive = false;
-                this.nativeUpdateDownloadId = -1L;
-                return;
-            }
-            if (progress.status == 4) {
-                textView.setText("Download paused • " + formatUpdateBytes + " / " + formatUpdateBytes2 + "\nAndroid will resume it automatically when possible.");
-            } else {
-                if (percent >= 0) {
-                    str = percent + "% • ";
-                } else {
-                    str = "Downloading • ";
-                }
-                textView.setText(str + formatUpdateBytes + " / " + formatUpdateBytes2);
-            }
-            this.mainHandler.postDelayed(new Runnable() { // from class: com.harleytg.forum.dev.MainActivity$$ExternalSyntheticLambda67
-                @Override // java.lang.Runnable
-                public final void run() {
-                    MainActivity.this.m79xb37470d3(j, release, progressBar, textView);
-                }
-            }, 350L);
-        }
-
-        /* renamed from: lambda$pollNativeUpdateDownload$59$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
-        /* synthetic */ void m79xb37470d3(long j, UpdateChecker.Release release, ProgressBar progressBar, TextView textView) {
-            if (isFinishing() || isDestroyed() || this.nativeUpdateDownloadId != j) {
-                return;
-            }
-            pollNativeUpdateDownload(release, j, progressBar, textView);
-        }
-
-        private void continueInstallAfterVerification(long j, String str) {
-            this.nativeUpdateFlowActive = false;
-            this.nativeUpdateDownloadId = -1L;
-            this.prefs.edit().remove("update_resume_after_permission").apply();
-            startNativeUpdateFlow();
-        }
-
-        /* renamed from: lambda$continueInstallAfterVerification$60$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
-        /* synthetic */ void m72x9fdda4ad(DialogInterface dialogInterface, int i) {
-            startNativeUpdateFlow();
-        }
-
-        /* renamed from: lambda$continueInstallAfterVerification$61$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
-        /* synthetic */ void m73xb385782e(DialogInterface dialogInterface, int i) {
-            this.nativeUpdateFlowActive = false;
-        }
-
-        private String formatUpdateBytes(long j) {
-            if (j < 1024) {
-                return j + " B";
-            }
-            double d = j / 1024.0d;
-            if (d < 1024.0d) {
-                return String.format(Locale.US, "%.1f KB", Double.valueOf(d));
-            }
-            return String.format(Locale.US, "%.1f MB", Double.valueOf(d / 1024.0d));
         }
 
         /* JADX INFO: Access modifiers changed from: private */
@@ -4244,14 +4062,6 @@ public final class HcfForum {
             }
             AppLogger.info(this, "main_destroy", str);
             this.mainHandler.removeCallbacksAndMessages(null);
-            AlertDialog alertDialog = this.nativeUpdateDialog;
-            if (alertDialog != null) {
-                try {
-                    alertDialog.dismiss();
-                } catch (Throwable unused) {
-                }
-                this.nativeUpdateDialog = null;
-            }
             LiveForumUpdater liveForumUpdater = this.liveUpdater;
             if (liveForumUpdater != null) {
                 liveForumUpdater.destroy();
@@ -4269,11 +4079,6 @@ public final class HcfForum {
         @Override // android.app.Activity
         protected void onActivityResult(int requestCode, int resultCode, Intent data) {
             super.onActivityResult(requestCode, resultCode, data);
-            if (requestCode == UPDATE_INSTALL_PERMISSION_REQUEST) {
-                prefs.edit().remove(AppPrefs.UPDATE_RESUME_AFTER_PERMISSION).apply();
-                nativeUpdateFlowActive = false;
-                return;
-            }
             if (requestCode != FILE_CHOOSER_REQUEST || filePathCallback == null) return;
             Uri[] result = null;
             if (resultCode == RESULT_OK && data != null) {
