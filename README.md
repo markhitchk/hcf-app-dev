@@ -42,7 +42,7 @@ App Settings includes a root-level **Home-screen Widget** category. **Follow HCF
 - Expected signer SHA-256: `93:D4:9B:F9:A8:77:C7:CF:B1:B3:7F:90:64:BD:95:5C:D6:7B:D7:DD:8D:B7:3A:9E:3F:76:6B:59:C4:BC:CE:63`
 - APK signing: v1 + v2 + v3 + v4 (`.idsig` sidecar)
 
-`build-release.sh` rejects a different signing certificate to protect in-place Beta/Dev updates. The updater verifies the exact APK SHA-256 as well as package name, versionCode, and signing-certificate lineage. If a release intentionally replaces an APK without changing versionCode, a changed SHA-256 identifies it as a same-version revision; an identical hash is treated as already installed.
+`build-release.sh` rejects a different signing certificate to protect the Beta/Dev signing line. App update availability and installation are handled through Google Play.
 
 ## Repository layout
 
@@ -87,19 +87,14 @@ The release workflow requires a GitHub Actions repository secret named `DISCORD_
 APK-side encryption is an obfuscation layer rather than a trusted secret store because the app must be able to decrypt its own webhook credential. Rotate the webhook if it is exposed. Do not put the webhook, passwords, cookies, auth tokens, GitHub tokens, or service-account credentials in source or public configuration.
 
 
-## Google Play and legacy/sideload builds
+## Google Play distribution
 
-The `dev` branch supports two distribution modes:
+The `dev` branch now has one Android distribution path: **Google Play**.
 
-- **Google Play (default):** uses `source code/AndroidManifest.xml`, scheduled
-  notification sync, and Google Play for app installation and updates.
-- **Legacy / sideload:** build with `HCF_LEGACY_SYSTEM=1` to use
-  `source code/AndroidManifest.legacy.xml`. This retains the historical
-  foreground live-notification service, direct battery-exemption request, and
-  verified APK updater.
-
-Legacy builds receive a `-Legacy.apk` suffix. Do not upload a Legacy APK to Google Play.
-
+- `source code/AndroidManifest.xml` is the only Android manifest.
+- Background notification sync uses JobScheduler + one-shot sync.
+- App update availability, installation, and signing delivery are handled by Google Play.
+- The old sideload APK updater, install-from-unknown-sources flow, special-use foreground-service path, and direct battery-exemption request are no longer supported.
 
 ### Play Store update availability
 
@@ -107,4 +102,4 @@ Google Play builds use Google's official Play In-App Updates API
 (`com.google.android.play:app-update:2.1.0`) to query the Play Store for the
 installed account and release track. App Settings shows **Google Play Update Available**
 when Play reports a newer build and otherwise shows that the installed build is up to
-date. The legacy/sideload build continues to use the existing verified GitHub APK updater.
+date. There is no separate legacy/sideload updater.
