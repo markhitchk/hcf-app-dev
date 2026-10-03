@@ -508,7 +508,7 @@ final class NotificationHelper {
     static final String FORUM_GROUP_KEY = "hcf_alerts_group_v2";
     static final String SILENT_STATUS_GROUP_KEY = "hcf_silent_status_group_v2";
     static final int FORUM_SUMMARY_ID = 41072;
-    private static final String[] LEGACY_CHANNEL_IDS = {
+    private static final String[] OLD_CHANNEL_IDS = {
     "hcf_alerts_v1", "hcf_silent_alerts_v1", "hcf_test_alerts_v1",
     "forum_messages_heads_up_v2", "forum_messages", "app_updates_v1",
     "hcf_background_v2", "instant_notification_service_v1", "hcf_passive_silent_v1",
@@ -532,8 +532,8 @@ final class NotificationHelper {
             NotificationManager manager = (NotificationManager) context.getSystemService("notification");
             if (manager == null) return;
 
-            boolean hadLegacySilent = false;
-            try { hadLegacySilent = manager.getNotificationChannel("hcf_silent_alerts_v1") != null; }
+            boolean hadOldSilentChannel = false;
+            try { hadOldSilentChannel = manager.getNotificationChannel("hcf_silent_alerts_v1") != null; }
             catch (Throwable ignored) {}
 
             try {
@@ -574,11 +574,11 @@ final class NotificationHelper {
                 deleteChannelIfPresent(manager, TEST_CHANNEL_ID);
             }
 
-            for (String legacyId : LEGACY_CHANNEL_IDS) deleteChannelIfPresent(manager, legacyId);
+            for (String oldChannelId : OLD_CHANNEL_IDS) deleteChannelIfPresent(manager, oldChannelId);
             try { manager.deleteNotificationChannelGroup("hcf_notifications_v1"); }
             catch (Throwable ignored) {}
 
-            if (hadLegacySilent && !(context instanceof HcfNotifications.InstantNotificationService)) {
+            if (hadOldSilentChannel && !(context instanceof HcfNotifications.InstantNotificationService)) {
                 SharedPreferences prefs = context.getSharedPreferences("hcf_app", 0);
                 String userId = prefs.getString("session_user_id", "");
                 boolean eligible = !silencePassiveEnabled(context)
