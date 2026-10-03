@@ -27,6 +27,8 @@ python3 "$release_verifier" "$project_dir/.."
 [[ -f "$android_jar" ]] || { echo "Missing $android_jar" >&2; exit 7; }
 command -v openssl >/dev/null || { echo "Missing openssl" >&2; exit 27; }
 command -v xxd >/dev/null || { echo "Missing xxd" >&2; exit 28; }
+command -v curl >/dev/null || { echo "Missing curl" >&2; exit 41; }
+command -v unzip >/dev/null || { echo "Missing unzip" >&2; exit 42; }
 
 package_name="$(sed -n 's/.*package="\([^"]*\)".*/\1/p' "$manifest" | head -1)"
 version_code="$(sed -n 's/.*android:versionCode="\([^"]*\)".*/\1/p' "$manifest" | head -1)"
@@ -74,8 +76,29 @@ if [[ -n "$expected_signer" ]]; then
   [[ "$keyfp" == "$normalized_expected" ]] || { echo "Wrong $channel signer" >&2; exit 20; }
 fi
 
-mkdir -p "$work/gen" "$work/classes" "$work/dex" "$work/src" "$work/secret-src/com/harleytg/forum" "$output_dir"
+mkdir -p "$work/gen" "$work/classes" "$work/dex" "$work/src" "$work/secret-src/com/harleytg/forum" "$work/play-deps" "$output_dir"
 cp -R "$project_dir/src/." "$work/src/"
+
+play_jars=()
+fetch_play_aar() {
+  local group_path="$1"
+  local artifact="$2"
+  local version="$3"
+  local aar="$work/play-deps/${artifact}-${version}.aar"
+  local jar="$work/play-deps/${artifact}-${version}.jar"
+  curl --fail --location --retry 3 --silent --show-error \
+    "https://dl.google.com/dl/android/maven2/${group_path}/${artifact}/${version}/${artifact}-${version}.aar" \
+    -o "$aar"
+  unzip -p "$aar" classes.jar > "$jar"
+  [[ -s "$jar" ]] || { echo "Missing classes.jar in $artifact $version" >&2; exit 43; }
+  play_jars+=("$jar")
+}
+
+fetch_play_aar "com/google/android/play" "app-update" "2.1.0"
+fetch_play_aar "com/google/android/play" "core-common" "2.0.3"
+fetch_play_aar "com/google/android/gms" "play-services-tasks" "18.0.2"
+fetch_play_aar "com/google/android/gms" "play-services-basement" "18.1.0"
+play_classpath="$(IFS=:; echo "${play_jars[*]}")"
 python3 "$onboarding_patcher" \
   "$work/src/com/harleytg/forum/HcfForum.java" \
   "$work/src/com/harleytg/forum/HcfCore.java"
@@ -175,19 +198,19 @@ if (( ${#kotlin_files[@]} > 0 )); then
 
   "$kotlinc_bin" \
     -jvm-target 1.8 \
-    -classpath "$android_jar" \
+    -classpath "$android_jar:$play_classpath" \
     -d "$work/classes" \
     "${kotlin_files[@]}" "${java_files[@]}"
 fi
 
-java_classpath="$android_jar:$work/classes"
+java_classpath="$android_jar:$play_classpath:$work/classes"
 if [[ -n "$kotlin_stdlib" ]]; then
   java_classpath="$java_classpath:$kotlin_stdlib"
 fi
 javac --release 8 -classpath "$java_classpath" -d "$work/classes" "${java_files[@]}"
 
 mapfile -t class_files < <(find "$work/classes" -name '*.class' -print)
-d8_inputs=("${class_files[@]}")
+d8_inputs=("${play_jars[@]}" "${class_files[@]}")
 if [[ -n "$kotlin_stdlib" ]]; then
   d8_inputs+=("$kotlin_stdlib")
 fi
@@ -195,6 +218,8 @@ fi
 
 strings "$work/dex/classes.dex" > "$work/dex-strings.txt"
 grep -Fq 'HcfDiscordSecret' "$work/dex-strings.txt" || { echo "Generated Discord binding missing from DEX" >&2; exit 32; }
+grep -Fq 'PlayStoreUpdateChecker' "$work/dex-strings.txt" || { echo "Google Play update checker missing from DEX" >&2; exit 44; }
+grep -Fq 'AppUpdateManagerFactory' "$work/dex-strings.txt" || { echo "Google Play app-update library missing from DEX" >&2; exit 45; }
 if (( ${#kotlin_files[@]} > 0 )); then
   grep -Fq 'HCF_KOTLIN_BUILD_V1' "$work/dex-strings.txt" || { echo "Kotlin build marker missing from DEX" >&2; exit 40; }
 fi
