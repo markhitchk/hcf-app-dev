@@ -99,3 +99,12 @@ The `dev` branch supports two distribution modes:
   verified APK updater.
 
 Legacy builds receive a `-Legacy.apk` suffix. Do not upload a Legacy APK to Google Play.
+
+
+### Play Store update availability
+
+Google Play builds use Google's official Play In-App Updates API
+(`com.google.android.play:app-update:2.1.0`) to query the Play Store for the
+installed account and release track. App Settings shows **Google Play Update Available**
+when Play reports a newer build and otherwise shows that the installed build is up to
+date. The legacy/sideload build continues to use the existing verified GitHub APK updater.
