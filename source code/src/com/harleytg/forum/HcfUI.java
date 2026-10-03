@@ -4372,7 +4372,6 @@ final class HcfSubActivities {
      */
     public static final class SettingsActivity extends ThemedActivity {
         private static final int REQUEST_NOTIFICATIONS = 901;
-        private static final int UPDATE_INSTALL_PERMISSION_REQUEST = 2410;
         private static final String TARGET_TAG_PREFIX = "hcf_setting:";
         public static final String EXTRA_SETTINGS_SECTION = "hcf_settings_section";
 
@@ -6170,12 +6169,6 @@ final class HcfSubActivities {
             LinearLayout card = card();
             card.addView(sectionTitle("App Updates", "Google Play managed updates"));
 
-            prefs.edit()
-                    .putBoolean("update_auto_download", false)
-                    .putBoolean("update_auto_install", false)
-                    .remove("update_resume_after_permission")
-                    .apply();
-
             updateChannelStatus = target(text("Channel: Google Play", 12, getColor(R.color.hcf_meta)), "update_channel");
             updateChannelStatus.setTypeface(null, 1);
             card.addView(updateChannelStatus);
@@ -6272,20 +6265,16 @@ final class HcfSubActivities {
         }
 
         private void installDownloadedUpdate(long id) {
-            prefs.edit().remove("update_resume_after_permission").apply();
             openInstallPermission();
         }
 
         private void resumeUpdateInstallAfterPermission() {
-            prefs.edit().remove("update_resume_after_permission").apply();
+            // Google Play owns update installation; no install permission is resumed here.
         }
 
         @Override
         protected void onActivityResult(int requestCode, int resultCode, Intent data) {
             super.onActivityResult(requestCode, resultCode, data);
-            if (requestCode == UPDATE_INSTALL_PERMISSION_REQUEST) {
-                prefs.edit().remove("update_resume_after_permission").apply();
-            }
         }
 
         private View diagnosticsCard() {
@@ -7942,9 +7931,7 @@ final class HcfSettingsImportUi {
                 AppPrefs.TELEMETRY_INCLUDE_EMAIL,
                 AppPrefs.TELEMETRY_INCLUDE_IDENTITY,
                 AppPrefs.TELEMETRY_INCLUDE_ROUTE,
-                AppPrefs.UPDATE_AUTO_CHECK,
-                AppPrefs.UPDATE_AUTO_DOWNLOAD,
-                AppPrefs.UPDATE_AUTO_INSTALL
+                AppPrefs.UPDATE_AUTO_CHECK
         ));
 
         private static final Set<String> STRING_KEYS = new LinkedHashSet<>(Arrays.asList(
