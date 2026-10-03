@@ -129,7 +129,7 @@ object HcfAuthenticator {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(18), dp(12), dp(18), dp(28))
             }
-            scroll.addView(root, ScrollView.LayoutParams(-1, -2))
+            scroll.addView(root, android.view.ViewGroup.LayoutParams(-1, -2))
 
             val header = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
