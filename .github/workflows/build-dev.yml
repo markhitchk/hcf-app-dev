@@ -267,7 +267,8 @@ jobs:
           OUT="$GITHUB_WORKSPACE/out-${HCF_VERSION_TAG}"
           ZXING_VERSION="3.5.3"
           ZXING_JAR="$WORK/zxing-core-${ZXING_VERSION}.jar"
-          mkdir -p "$WORK/gen" "$WORK/classes" "$WORK/dex" "$OUT"
+          PLAY_DEPS_DIR="$WORK/play-deps"
+          mkdir -p "$WORK/gen" "$WORK/classes" "$WORK/dex" "$PLAY_DEPS_DIR" "$OUT"
           cp "$RUNNER_TEMP/hcf-motion-audit.txt" "$OUT/MOTION-AUDIT.txt"
 
           # Lightweight native QR decoder for HCF Authenticator. Pinned to a
@@ -277,6 +278,28 @@ jobs:
             -o "$ZXING_JAR"
           test -s "$ZXING_JAR"
           jar tf "$ZXING_JAR" | grep -Fq 'com/google/zxing/qrcode/QRCodeReader.class'
+
+          PLAY_JARS=()
+          fetch_play_aar() {
+            local group_path="$1"
+            local artifact="$2"
+            local version="$3"
+            local aar="$PLAY_DEPS_DIR/${artifact}-${version}.aar"
+            local jar="$PLAY_DEPS_DIR/${artifact}-${version}.jar"
+            curl --fail --location --retry 3 --silent --show-error \
+              "https://dl.google.com/dl/android/maven2/${group_path}/${artifact}/${version}/${artifact}-${version}.aar" \
+              -o "$aar"
+            unzip -p "$aar" classes.jar > "$jar"
+            test -s "$jar"
+            PLAY_JARS+=("$jar")
+          }
+
+          fetch_play_aar "com/google/android/play" "app-update" "2.1.0"
+          fetch_play_aar "com/google/android/play" "core-common" "2.0.3"
+          fetch_play_aar "com/google/android/gms" "play-services-tasks" "18.0.2"
+          fetch_play_aar "com/google/android/gms" "play-services-basement" "18.1.0"
+          PLAY_CLASSPATH="$(IFS=:; echo "${PLAY_JARS[*]}")"
+          jar tf "${PLAY_JARS[0]}" | grep -Fq 'com/google/android/play/core/appupdate/AppUpdateManagerFactory.class'
 
           "$BT/aapt" package -f -m \
             -J "$WORK/gen" \
@@ -293,19 +316,19 @@ jobs:
           if (( ${#KOTLIN_FILES[@]} > 0 )); then
             "$KOTLIN_HOME/bin/kotlinc" \
               -jvm-target 1.8 \
-              -classpath "$ANDROID_JAR:$ZXING_JAR" \
+              -classpath "$ANDROID_JAR:$ZXING_JAR:$PLAY_CLASSPATH" \
               -d "$WORK/classes" \
               "${KOTLIN_FILES[@]}" "${JAVA_FILES[@]}"
           fi
 
-          JAVAC_CLASSPATH="$ANDROID_JAR:$ZXING_JAR:$WORK/classes"
+          JAVAC_CLASSPATH="$ANDROID_JAR:$ZXING_JAR:$PLAY_CLASSPATH:$WORK/classes"
           if (( ${#KOTLIN_FILES[@]} > 0 )); then
             JAVAC_CLASSPATH="$JAVAC_CLASSPATH:$KOTLIN_STDLIB"
           fi
           javac --release 8 -classpath "$JAVAC_CLASSPATH" -d "$WORK/classes" "${JAVA_FILES[@]}"
 
           mapfile -t CLASS_FILES < <(find "$WORK/classes" -name '*.class' -print)
-          D8_INPUTS=("$ZXING_JAR" "${CLASS_FILES[@]}")
+          D8_INPUTS=("$ZXING_JAR" "${PLAY_JARS[@]}" "${CLASS_FILES[@]}")
           if (( ${#KOTLIN_FILES[@]} > 0 )); then
             D8_INPUTS+=("$KOTLIN_STDLIB")
           fi
@@ -350,6 +373,9 @@ jobs:
           grep -Fq 'HCF_AUTHENTICATOR_NATIVE_QR_SCANNER_V2' "$OUT/DEX-STRINGS.txt"
           grep -Fq 'HCF_KOTLIN_BUILD_V1' "$OUT/DEX-STRINGS.txt"
           grep -Fq 'QRCodeReader' "$OUT/DEX-STRINGS.txt"
+          grep -Fq 'PlayStoreUpdateChecker' "$OUT/DEX-STRINGS.txt"
+          grep -Fq 'AppUpdateManagerFactory' "$OUT/DEX-STRINGS.txt"
+          grep -Fq 'Google Play Update Available' "$OUT/DEX-STRINGS.txt"
           ! grep -Fq 'https://discord.com/api/webhooks/' "$OUT/DEX-STRINGS.txt"
           ! grep -Fq 'https://discordapp.com/api/webhooks/' "$OUT/DEX-STRINGS.txt"
           ! grep -Fq 'cloudfunctions.net/hcfBanApi' "$OUT/DEX-STRINGS.txt"
