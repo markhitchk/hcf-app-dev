@@ -2709,8 +2709,10 @@ public final class HcfForum {
                         .remove("update_resume_after_permission")
                         .apply();
                 try {
-                    startActivity(new Intent(Intent.ACTION_VIEW,
-                            Uri.parse("market://details?id=" + getPackageName())));
+                    Intent market = new Intent(Intent.ACTION_VIEW,
+                            Uri.parse("market://details?id=" + getPackageName()));
+                    market.setPackage("com.android.vending");
+                    startActivity(market);
                     AppLogger.info(this, "update_route", "google-play-market");
                 } catch (Throwable first) {
                     try {
