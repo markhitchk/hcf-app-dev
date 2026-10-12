@@ -931,12 +931,12 @@ final class HcfAppLinksConfig {
 /**
  * Native URL bridge for HCF-only routes that should open Android UI instead of a forum page.
  *
- * https://forum.harleytg.com/app/settings and the backup-domain equivalent both open the
+ * https://harleysclan.freeflarum.com/app/settings and the backup-domain equivalent both open the
  * native App Settings screen. The existing hcf-app://settings route remains supported.
  */
 final class HcfNativeRoutes {
-    private static final String PRIMARY_HOST = "forum.harleytg.com";
-    private static final String BACKUP_HOST = "harleysclan.freeflarum.com";
+    private static final String PRIMARY_HOST = "harleysclan.freeflarum.com";
+    private static final String BACKUP_HOST = "forum.harleytg.com";
     private static final String SETTINGS_PATH = "/app/settings";
     private static final String EXTRA_SETTINGS_CONSUMED = "hcf_native_settings_route_consumed";
     private static final long ROUTE_POLL_MS = 300L;
