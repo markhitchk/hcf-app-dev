@@ -59,8 +59,8 @@ final class ForumConfig {
     static final String HTTPS = "https";
     static final long PRIMARY_RETRY_COOLDOWN_MS = 21600000L;
 
-    static final String BUILTIN_PRIMARY_HOST = "forum.harleytg.com";
-    static final String BUILTIN_BACKUP_HOST = "harleysclan.freeflarum.com";
+    static final String BUILTIN_PRIMARY_HOST = "harleysclan.freeflarum.com";
+    static final String BUILTIN_BACKUP_HOST = "forum.harleytg.com";
 
     static volatile String PRIMARY_HOST = BUILTIN_PRIMARY_HOST;
     static volatile String BACKUP_HOST = BUILTIN_BACKUP_HOST;
@@ -375,10 +375,10 @@ final class ForumIdentity {
 
     static Snapshot load(Context context) {
         if (context == null) {
-            return guest("forum.harleytg.com");
+            return guest("harleysclan.freeflarum.com");
         }
         SharedPreferences sharedPreferences = context.getSharedPreferences("hcf_app", 0);
-        return new Snapshot(sharedPreferences.getBoolean("identity_logged_in", false), sharedPreferences.getString("identity_user_id", ""), sharedPreferences.getString("identity_username", ""), sharedPreferences.getString("identity_slug", ""), sharedPreferences.getString("identity_display_name", "Guest_Protocol"), sharedPreferences.getString("identity_email", ""), sharedPreferences.getBoolean("identity_email_confirmed", false), sharedPreferences.getString("identity_avatar_url", ""), sharedPreferences.getString("identity_groups", ""), sharedPreferences.getString("identity_connections", ""), sharedPreferences.getBoolean("identity_admin", false), sharedPreferences.getString("identity_join_time", ""), sharedPreferences.getString("identity_last_seen_at", ""), sharedPreferences.getInt("identity_unread_notifications", 0), sharedPreferences.getInt("identity_new_notifications", 0), sharedPreferences.getInt("identity_discussion_count", 0), sharedPreferences.getInt("identity_comment_count", 0), sharedPreferences.getString("identity_host", "forum.harleytg.com"), sharedPreferences.getLong("identity_synced_at", 0L));
+        return new Snapshot(sharedPreferences.getBoolean("identity_logged_in", false), sharedPreferences.getString("identity_user_id", ""), sharedPreferences.getString("identity_username", ""), sharedPreferences.getString("identity_slug", ""), sharedPreferences.getString("identity_display_name", "Guest_Protocol"), sharedPreferences.getString("identity_email", ""), sharedPreferences.getBoolean("identity_email_confirmed", false), sharedPreferences.getString("identity_avatar_url", ""), sharedPreferences.getString("identity_groups", ""), sharedPreferences.getString("identity_connections", ""), sharedPreferences.getBoolean("identity_admin", false), sharedPreferences.getString("identity_join_time", ""), sharedPreferences.getString("identity_last_seen_at", ""), sharedPreferences.getInt("identity_unread_notifications", 0), sharedPreferences.getInt("identity_new_notifications", 0), sharedPreferences.getInt("identity_discussion_count", 0), sharedPreferences.getInt("identity_comment_count", 0), sharedPreferences.getString("identity_host", "harleysclan.freeflarum.com"), sharedPreferences.getLong("identity_synced_at", 0L));
     }
 
     static void clear(Context context) {
@@ -737,7 +737,7 @@ final class ForumNotificationClient {
 
     private static String trustedBase(String str) {
         if (!ForumUrlRouter.isForumHost(str)) {
-            str = "forum.harleytg.com";
+            str = "harleysclan.freeflarum.com";
         }
         return ForumUrlRouter.home(str);
     }
@@ -962,10 +962,10 @@ final class ForumSecurity {
 
     static Snapshot load(Context context) {
         if (context == null) {
-            return empty("forum.harleytg.com");
+            return empty("harleysclan.freeflarum.com");
         }
         SharedPreferences sharedPreferences = context.getSharedPreferences("hcf_app", 0);
-        return new Snapshot(sharedPreferences.getBoolean("identity_security_seen", false), sharedPreferences.getInt("identity_security_session_count", 0), sharedPreferences.getInt("identity_security_active_session_count", 0), sharedPreferences.getString("identity_security_providers", ""), sharedPreferences.getBoolean("identity_security_password_controls", false), sharedPreferences.getBoolean("identity_security_email_controls", false), sharedPreferences.getBoolean("identity_security_two_factor_controls", false), sharedPreferences.getString("identity_security_host", "forum.harleytg.com"), sharedPreferences.getString("identity_security_path", ""), sharedPreferences.getLong("identity_security_synced_at", 0L));
+        return new Snapshot(sharedPreferences.getBoolean("identity_security_seen", false), sharedPreferences.getInt("identity_security_session_count", 0), sharedPreferences.getInt("identity_security_active_session_count", 0), sharedPreferences.getString("identity_security_providers", ""), sharedPreferences.getBoolean("identity_security_password_controls", false), sharedPreferences.getBoolean("identity_security_email_controls", false), sharedPreferences.getBoolean("identity_security_two_factor_controls", false), sharedPreferences.getString("identity_security_host", "harleysclan.freeflarum.com"), sharedPreferences.getString("identity_security_path", ""), sharedPreferences.getLong("identity_security_synced_at", 0L));
     }
 
     static Snapshot empty(String str) {
