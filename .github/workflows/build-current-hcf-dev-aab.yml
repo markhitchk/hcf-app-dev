@@ -43,6 +43,43 @@ jobs:
           python3 .github/scripts/apply-onboarding-live-session.py             'source code/src/com/harleytg/forum/HcfForum.java'
           python3 .github/scripts/apply-motion-overhaul.py 'source code'
 
+      - name: Set FreeFlarum as primary in pinned Android source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("app-src/source code/src/com/harleytg/forum")
+          primary = '"forum.harleytg.com"'
+          backup = '"harleysclan.freeflarum.com"'
+          patched = []
+          for path in root.glob("*.java"):
+              source = path.read_text(encoding="utf-8")
+              result = source.replace(primary, "__HCF_PRIMARY_SWAP__")
+              result = result.replace(backup, primary).replace("__HCF_PRIMARY_SWAP__", backup)
+              result = result.replace('"https://forum.harleytg.com/"', "__HCF_COOKIE_SWAP__")
+              result = result.replace('"https://harleysclan.freeflarum.com/"', '"https://forum.harleytg.com/"')
+              result = result.replace("__HCF_COOKIE_SWAP__", '"https://harleysclan.freeflarum.com/"')
+              result = result.replace(
+                  "https://forum.harleytg.com/app/settings",
+                  "https://harleysclan.freeflarum.com/app/settings",
+              )
+              result = result.replace(
+                  "https://raw.githubusercontent.com/harleytg-studios/hcf-app/main/configs/domains.config",
+                  "https://raw.githubusercontent.com/markhitchk/hcf-app-dev/main/configs/domains.config",
+              )
+              if source != result:
+                  path.write_text(result, encoding="utf-8")
+                  patched.append(path.name)
+          forum = (root / "HcfForum.java").read_text(encoding="utf-8")
+          core = (root / "HcfCore.java").read_text(encoding="utf-8")
+          assert 'BUILTIN_PRIMARY_HOST = "harleysclan.freeflarum.com"' in forum
+          assert 'BUILTIN_BACKUP_HOST = "forum.harleytg.com"' in forum
+          assert 'return "harleysclan.freeflarum.com";' in forum
+          assert "markhitchk/hcf-app-dev/main/configs/domains.config" in core
+          print("FreeFlarum is the primary forum host. Patched:", ", ".join(patched))
+          PY
+
       - name: Generate local dev Discord binding fallback
         shell: bash
         run: |
