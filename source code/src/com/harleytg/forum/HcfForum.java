@@ -1149,8 +1149,8 @@ public final class HcfForum {
         /* renamed from: lambda$configureActions$23$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
         /* synthetic */ void m52lambda$configureActions$23$comharleytgforumdevMainActivity(View view) {
             closeDrawer();
-            String str = "forum.harleytg.com".equals(this.activeHost) ? "harleysclan.freeflarum.com" : "forum.harleytg.com";
-            if ("forum.harleytg.com".equals(str)) {
+            String str = "harleysclan.freeflarum.com".equals(this.activeHost) ? "forum.harleytg.com" : "harleysclan.freeflarum.com";
+            if ("harleysclan.freeflarum.com".equals(str)) {
                 this.prefs.edit().remove("fallback_until").apply();
             }
             switchHost(str, currentForumUri());
@@ -1252,8 +1252,8 @@ public final class HcfForum {
 
         /* renamed from: lambda$configureActions$33$com-harleytg-forum-dev-MainActivity, reason: not valid java name */
         /* synthetic */ void m62lambda$configureActions$33$comharleytgforumdevMainActivity(View view) {
-            String str = "forum.harleytg.com".equals(this.activeHost) ? "harleysclan.freeflarum.com" : "forum.harleytg.com";
-            if ("forum.harleytg.com".equals(str)) {
+            String str = "harleysclan.freeflarum.com".equals(this.activeHost) ? "forum.harleytg.com" : "harleysclan.freeflarum.com";
+            if ("harleysclan.freeflarum.com".equals(str)) {
                 this.prefs.edit().remove("fallback_until").apply();
             }
             AppLogger.info(this, "manual_host_switch", this.activeHost + " -> " + str);
@@ -1349,7 +1349,7 @@ public final class HcfForum {
             if (str2 == null) {
                 str2 = chooseInitialHost();
             }
-            String str3 = "forum.harleytg.com".equalsIgnoreCase(str2) ? "Primary" : "Backup";
+            String str3 = "harleysclan.freeflarum.com".equalsIgnoreCase(str2) ? "Primary" : "Backup";
             if ("OFFLINE".equals(this.liveState)) {
                 str = "Offline";
             } else if ("WAITING".equals(this.liveState)) {
@@ -2204,7 +2204,7 @@ public final class HcfForum {
             }
             if (!trim.contains("://")) {
                 String lowerCase = trim.toLowerCase(Locale.US);
-                if (lowerCase.startsWith("forum.harleytg.com".toLowerCase(Locale.US)) || lowerCase.startsWith("harleysclan.freeflarum.com".toLowerCase(Locale.US))) {
+                if (lowerCase.startsWith("harleysclan.freeflarum.com".toLowerCase(Locale.US)) || lowerCase.startsWith("forum.harleytg.com".toLowerCase(Locale.US))) {
                     trim = "https://" + trim;
                 } else if (!trim.contains(".")) {
                     if (!trim.startsWith("/")) {
@@ -2342,7 +2342,7 @@ public final class HcfForum {
             if (str == null) {
                 return;
             }
-            boolean equalsIgnoreCase = "forum.harleytg.com".equalsIgnoreCase(str);
+            boolean equalsIgnoreCase = "harleysclan.freeflarum.com".equalsIgnoreCase(str);
             TextView textView = this.hostBadge;
             int i = R.color.hcf_yellow;
             if (textView != null) {
@@ -2677,9 +2677,9 @@ public final class HcfForum {
         /* JADX INFO: Access modifiers changed from: private */
         public String chooseInitialHost() {
             if (this.prefs.getBoolean("auto_failover", true)) {
-                return System.currentTimeMillis() < this.prefs.getLong("fallback_until", 0L) ? "harleysclan.freeflarum.com" : "forum.harleytg.com";
+                return System.currentTimeMillis() < this.prefs.getLong("fallback_until", 0L) ? "forum.harleytg.com" : "harleysclan.freeflarum.com";
             }
-            return "forum.harleytg.com";
+            return "harleysclan.freeflarum.com";
         }
 
         private Uri currentForumUri() {
@@ -2699,7 +2699,7 @@ public final class HcfForum {
 
         /* JADX INFO: Access modifiers changed from: private */
         public void failOverFromPrimary(Uri uri, ErrorSystem.AppError appError) {
-            if (!"forum.harleytg.com".equals(this.activeHost) || this.switchingHosts) {
+            if (!"harleysclan.freeflarum.com".equals(this.activeHost) || this.switchingHosts) {
                 return;
             }
             if (appError == null) {
@@ -2727,7 +2727,7 @@ public final class HcfForum {
             }
             this.statusOverlay.setVisibility(0);
             this.errorActions.setVisibility(8);
-            switchHost("harleysclan.freeflarum.com", uri);
+            switchHost("forum.harleytg.com", uri);
         }
 
         private void switchHost(String str, Uri uri) {
@@ -2749,7 +2749,7 @@ public final class HcfForum {
             final int i = this.connectionUiGeneration + 1;
             this.connectionUiGeneration = i;
             final String str = (requestedHost == null || requestedHost.trim().isEmpty())
-                    ? "forum.harleytg.com" : requestedHost;
+                    ? "harleysclan.freeflarum.com" : requestedHost;
             this.mainFrameLoadFailed = false;
             this.lastAppError = null;
             this.lastErrorUri = null;
@@ -2850,7 +2850,7 @@ public final class HcfForum {
                     }
                     uri = Uri.parse(url);
                     connectionTimeout = ErrorSystem.connectionTimeout(str);
-                    if ("forum.harleytg.com".equalsIgnoreCase(str) || (sharedPreferences = this.prefs) == null || !sharedPreferences.getBoolean("auto_failover", true)) {
+                    if ("harleysclan.freeflarum.com".equalsIgnoreCase(str) || (sharedPreferences = this.prefs) == null || !sharedPreferences.getBoolean("auto_failover", true)) {
                         showUnavailable(connectionTimeout, uri);
                     }
                     if (uri == null) {
@@ -2862,7 +2862,7 @@ public final class HcfForum {
                 url = ForumUrlRouter.home(str);
                 uri = Uri.parse(url);
                 connectionTimeout = ErrorSystem.connectionTimeout(str);
-                if ("forum.harleytg.com".equalsIgnoreCase(str)) {
+                if ("harleysclan.freeflarum.com".equalsIgnoreCase(str)) {
                 }
                 showUnavailable(connectionTimeout, uri);
             }
@@ -2941,7 +2941,7 @@ public final class HcfForum {
                 updateLiveState("OFFLINE");
             }
             this.errorActions.setVisibility(0);
-            this.alternateButton.setText("forum.harleytg.com".equals(this.activeHost) ? R.string.use_backup : R.string.try_primary);
+            this.alternateButton.setText("harleysclan.freeflarum.com".equals(this.activeHost) ? R.string.use_backup : R.string.try_primary);
             this.statusOverlay.setVisibility(0);
             this.pageProgress.setVisibility(8);
             this.startupProgress.setVisibility(8);
@@ -3442,7 +3442,7 @@ public final class HcfForum {
                 return;
             }
             if (!ForumUrlRouter.isForumHost(str2) && (str2 = this.activeHost) == null) {
-                str2 = "forum.harleytg.com";
+                str2 = "harleysclan.freeflarum.com";
             }
             String string = this.prefs.getString("session_user_id", "");
             boolean z = string == null || !str.equals(string);
@@ -3464,7 +3464,7 @@ public final class HcfForum {
         /* JADX INFO: Access modifiers changed from: private */
         public void handleIdentityUpdate(String str, String str2) {
             if (!ForumUrlRouter.isForumHost(str2) && (str2 = this.activeHost) == null) {
-                str2 = "forum.harleytg.com";
+                str2 = "harleysclan.freeflarum.com";
             }
             try {
                 ForumIdentity.Snapshot load = ForumIdentity.load(this);
@@ -3495,7 +3495,7 @@ public final class HcfForum {
             if (snapshot == null) {
                 String str = this.activeHost;
                 if (str == null) {
-                    str = "forum.harleytg.com";
+                    str = "harleysclan.freeflarum.com";
                 }
                 snapshot = ForumIdentity.guest(str);
             }
@@ -3707,7 +3707,7 @@ public final class HcfForum {
         /* JADX INFO: Access modifiers changed from: private */
         public void handleSecuritySummaryUpdate(String str, String str2) {
             if (!ForumUrlRouter.isForumHost(str2) && (str2 = this.activeHost) == null) {
-                str2 = "forum.harleytg.com";
+                str2 = "harleysclan.freeflarum.com";
             }
             try {
                 ForumIdentity.Snapshot load = ForumIdentity.load(this);
@@ -4094,7 +4094,7 @@ public final class HcfForum {
                 if (z) {
                     String str2 = this.activeHost;
                     if (str2 == null) {
-                        str2 = "forum.harleytg.com";
+                        str2 = "harleysclan.freeflarum.com";
                     }
                     NotificationHelper.post(this, "Harley's Clan Forum", "Heads-up notifications are enabled. This is a test alert.", ForumUrlRouter.home(str2));
                 }
@@ -4629,7 +4629,7 @@ public final class HcfForum {
                     sb.append(" | ");
                     sb.append(fromWebView.technical);
                     TelemetryService.sendDiagnosticEvent(mainActivity, "webview_connection_error", sb.toString());
-                    if ("forum.harleytg.com".equalsIgnoreCase(url.getHost())) {
+                    if ("harleysclan.freeflarum.com".equalsIgnoreCase(url.getHost())) {
                         MainActivity.this.failOverFromPrimary(url, fromWebView);
                     } else {
                         MainActivity.this.showUnavailable(fromWebView, url);
@@ -4648,7 +4648,7 @@ public final class HcfForum {
                     if (statusCode == 403 || statusCode == 404 || statusCode == 429 || (statusCode >= 500 && statusCode <= 599)) {
                         Uri url = webResourceRequest.getUrl();
                         ErrorSystem.AppError fromHttp = ErrorSystem.fromHttp(statusCode, url.getHost());
-                        if ("forum.harleytg.com".equalsIgnoreCase(url.getHost())) {
+                        if ("harleysclan.freeflarum.com".equalsIgnoreCase(url.getHost())) {
                             MainActivity.this.failOverFromPrimary(url, fromHttp);
                         } else {
                             MainActivity.this.showUnavailable(fromHttp, url);
@@ -4666,7 +4666,7 @@ public final class HcfForum {
                 StringBuilder sb = new StringBuilder("SSL validation failed for ");
                 sb.append(parse.getHost() == null ? "forum host" : parse.getHost());
                 ErrorSystem.AppError ssl = ErrorSystem.ssl(sb.toString());
-                if ("forum.harleytg.com".equalsIgnoreCase(parse.getHost())) {
+                if ("harleysclan.freeflarum.com".equalsIgnoreCase(parse.getHost())) {
                     MainActivity.this.failOverFromPrimary(parse, ssl);
                 } else {
                     MainActivity.this.showUnavailable(ssl, parse);
@@ -5905,12 +5905,12 @@ public final class HcfForum {
                 return;
             }
             linearLayout.removeAllViews();
-            List<CookieEntry> readCookies = readCookies("forum.harleytg.com");
-            List<CookieEntry> readCookies2 = readCookies("harleysclan.freeflarum.com");
+            List<CookieEntry> readCookies = readCookies("harleysclan.freeflarum.com");
+            List<CookieEntry> readCookies2 = readCookies("forum.harleytg.com");
             int size = readCookies.size() + readCookies2.size();
             this.totalState.setText("Visible forum cookies: " + size + " • Primary " + readCookies.size() + " • Backup " + readCookies2.size());
-            addHostSection("Primary", "forum.harleytg.com", readCookies);
-            addHostSection("Backup", "harleysclan.freeflarum.com", readCookies2);
+            addHostSection("Primary", "harleysclan.freeflarum.com", readCookies);
+            addHostSection("Backup", "forum.harleytg.com", readCookies2);
             if (size == 0) {
                 TextView text = text("No visible forum cookies are currently stored.", 12, getColor(R.color.hcf_muted));
                 text.setPadding(0, dp(8), 0, dp(8));
@@ -6157,8 +6157,8 @@ final class SetupCenter {
     static final int CURRENT_SETUP_VERSION = 2;
     static final int CURRENT_WELCOME_VERSION = 2;
     static final String EXTRA_AUTO_LAUNCHED = "hcf_setup_auto_launched";
-    static final String PRIMARY_FORUM_HOST = "forum.harleytg.com";
-    static final String BACKUP_FORUM_HOST = "harleysclan.freeflarum.com";
+    static final String PRIMARY_FORUM_HOST = "harleysclan.freeflarum.com";
+    static final String BACKUP_FORUM_HOST = "forum.harleytg.com";
 
     private static final String DRAWER_TAG = "hcf_app_setup_drawer";
 
@@ -6886,8 +6886,8 @@ final class ForumConfig {
     static final String HTTPS = "https";
     static final long PRIMARY_RETRY_COOLDOWN_MS = 21600000L;
 
-    static final String BUILTIN_PRIMARY_HOST = "forum.harleytg.com";
-    static final String BUILTIN_BACKUP_HOST = "harleysclan.freeflarum.com";
+    static final String BUILTIN_PRIMARY_HOST = "harleysclan.freeflarum.com";
+    static final String BUILTIN_BACKUP_HOST = "forum.harleytg.com";
 
     static volatile String PRIMARY_HOST = BUILTIN_PRIMARY_HOST;
     static volatile String BACKUP_HOST = BUILTIN_BACKUP_HOST;
@@ -7202,10 +7202,10 @@ final class ForumIdentity {
 
     static Snapshot load(Context context) {
         if (context == null) {
-            return guest("forum.harleytg.com");
+            return guest("harleysclan.freeflarum.com");
         }
         SharedPreferences sharedPreferences = context.getSharedPreferences("hcf_app", 0);
-        return new Snapshot(sharedPreferences.getBoolean("identity_logged_in", false), sharedPreferences.getString("identity_user_id", ""), sharedPreferences.getString("identity_username", ""), sharedPreferences.getString("identity_slug", ""), sharedPreferences.getString("identity_display_name", "Guest_Protocol"), sharedPreferences.getString("identity_email", ""), sharedPreferences.getBoolean("identity_email_confirmed", false), sharedPreferences.getString("identity_avatar_url", ""), sharedPreferences.getString("identity_groups", ""), sharedPreferences.getString("identity_connections", ""), sharedPreferences.getBoolean("identity_admin", false), sharedPreferences.getString("identity_join_time", ""), sharedPreferences.getString("identity_last_seen_at", ""), sharedPreferences.getInt("identity_unread_notifications", 0), sharedPreferences.getInt("identity_new_notifications", 0), sharedPreferences.getInt("identity_discussion_count", 0), sharedPreferences.getInt("identity_comment_count", 0), sharedPreferences.getString("identity_host", "forum.harleytg.com"), sharedPreferences.getLong("identity_synced_at", 0L));
+        return new Snapshot(sharedPreferences.getBoolean("identity_logged_in", false), sharedPreferences.getString("identity_user_id", ""), sharedPreferences.getString("identity_username", ""), sharedPreferences.getString("identity_slug", ""), sharedPreferences.getString("identity_display_name", "Guest_Protocol"), sharedPreferences.getString("identity_email", ""), sharedPreferences.getBoolean("identity_email_confirmed", false), sharedPreferences.getString("identity_avatar_url", ""), sharedPreferences.getString("identity_groups", ""), sharedPreferences.getString("identity_connections", ""), sharedPreferences.getBoolean("identity_admin", false), sharedPreferences.getString("identity_join_time", ""), sharedPreferences.getString("identity_last_seen_at", ""), sharedPreferences.getInt("identity_unread_notifications", 0), sharedPreferences.getInt("identity_new_notifications", 0), sharedPreferences.getInt("identity_discussion_count", 0), sharedPreferences.getInt("identity_comment_count", 0), sharedPreferences.getString("identity_host", "harleysclan.freeflarum.com"), sharedPreferences.getLong("identity_synced_at", 0L));
     }
 
     static void clear(Context context) {
@@ -7608,7 +7608,7 @@ final class ForumNotificationClient {
 
     private static String trustedBase(String str) {
         if (!ForumUrlRouter.isForumHost(str)) {
-            str = "forum.harleytg.com";
+            str = "harleysclan.freeflarum.com";
         }
         return ForumUrlRouter.home(str);
     }
@@ -7953,10 +7953,10 @@ final class ForumSecurity {
 
     static Snapshot load(Context context) {
         if (context == null) {
-            return empty("forum.harleytg.com");
+            return empty("harleysclan.freeflarum.com");
         }
         SharedPreferences sharedPreferences = context.getSharedPreferences("hcf_app", 0);
-        return new Snapshot(sharedPreferences.getBoolean("identity_security_seen", false), sharedPreferences.getInt("identity_security_session_count", 0), sharedPreferences.getInt("identity_security_active_session_count", 0), sharedPreferences.getString("identity_security_providers", ""), sharedPreferences.getBoolean("identity_security_password_controls", false), sharedPreferences.getBoolean("identity_security_email_controls", false), sharedPreferences.getBoolean("identity_security_two_factor_controls", false), sharedPreferences.getString("identity_security_host", "forum.harleytg.com"), sharedPreferences.getString("identity_security_path", ""), sharedPreferences.getLong("identity_security_synced_at", 0L));
+        return new Snapshot(sharedPreferences.getBoolean("identity_security_seen", false), sharedPreferences.getInt("identity_security_session_count", 0), sharedPreferences.getInt("identity_security_active_session_count", 0), sharedPreferences.getString("identity_security_providers", ""), sharedPreferences.getBoolean("identity_security_password_controls", false), sharedPreferences.getBoolean("identity_security_email_controls", false), sharedPreferences.getBoolean("identity_security_two_factor_controls", false), sharedPreferences.getString("identity_security_host", "harleysclan.freeflarum.com"), sharedPreferences.getString("identity_security_path", ""), sharedPreferences.getLong("identity_security_synced_at", 0L));
     }
 
     static Snapshot empty(String str) {
