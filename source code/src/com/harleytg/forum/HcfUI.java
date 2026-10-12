@@ -2822,7 +2822,7 @@ final class HcfSubActivities {
         private View sessionCard(ForumIdentity.Snapshot snapshot, ForumSecurity.Snapshot snapshot2) {
             LinearLayout card = card();
             card.addView(sectionTitle("Session & privacy", "Identity sync"));
-            addRow(card, "Forum host", snapshot.host.isEmpty() ? "forum.harleytg.com" : snapshot.host);
+            addRow(card, "Forum host", snapshot.host.isEmpty() ? "harleysclan.freeflarum.com" : snapshot.host);
             addRow(card, "Identity sync", snapshot.syncedAt <= 0 ? "Not synced yet" : DateFormat.getDateTimeInstance().format(new Date(snapshot.syncedAt)));
             addRow(card, "Security sync", snapshot2.syncedAt > 0 ? DateFormat.getDateTimeInstance().format(new Date(snapshot2.syncedAt)) : "Not synced yet");
             TextView text = text("The app stores only the current user's self-visible profile summary and safe security capability/status fields. It does not store passwords, recovery codes, access/session token values, or cookie values.", 10, getColor(R.color.hcf_muted));
@@ -2857,7 +2857,7 @@ final class HcfSubActivities {
 
         private void openForumPath(String str) {
             ForumIdentity.Snapshot load = ForumIdentity.load(this);
-            String str2 = ForumUrlRouter.isForumHost(load.host) ? load.host : "forum.harleytg.com";
+            String str2 = ForumUrlRouter.isForumHost(load.host) ? load.host : "harleysclan.freeflarum.com";
             Intent intent = new Intent(this, (Class<?>) HcfForum.MainActivity.class);
             intent.setData(Uri.parse("https://" + str2 + str));
             intent.addFlags(603979776);
@@ -3832,8 +3832,8 @@ final class HcfSubActivities {
 
         private String buildDiagnosticReport() {
             SharedPreferences sharedPreferences = getSharedPreferences("hcf_app", 0);
-            String string = sharedPreferences.getString("active_host", "forum.harleytg.com");
-            String str = ForumUrlRouter.isForumHost(string) ? string : "forum.harleytg.com";
+            String string = sharedPreferences.getString("active_host", "harleysclan.freeflarum.com");
+            String str = ForumUrlRouter.isForumHost(string) ? string : "harleysclan.freeflarum.com";
             String string2 = sharedPreferences.getString("notification_last_sync_status", "Not synced yet");
             long j = sharedPreferences.getLong("notification_last_sync_latency_ms", 0L);
             String str2 = "Unknown";
@@ -3949,11 +3949,11 @@ final class HcfSubActivities {
             if (this.statusLine == null) {
                 return;
             }
-            String string = getSharedPreferences("hcf_app", 0).getString("active_host", "forum.harleytg.com");
+            String string = getSharedPreferences("hcf_app", 0).getString("active_host", "harleysclan.freeflarum.com");
             if (!ForumUrlRouter.isForumHost(string)) {
-                string = "forum.harleytg.com";
+                string = "harleysclan.freeflarum.com";
             }
-            String str = "forum.harleytg.com".equalsIgnoreCase(string) ? "Primary" : "Backup";
+            String str = "harleysclan.freeflarum.com".equalsIgnoreCase(string) ? "Primary" : "Backup";
             LogCounts countLogs = countLogs(this.rawLogs);
             TextView textView = this.statusLine;
             StringBuilder sb = new StringBuilder();
@@ -4993,7 +4993,7 @@ final class HcfSubActivities {
 
         private void openAccountForumPath(String path) {
             ForumIdentity.Snapshot identity = ForumIdentity.load(this);
-            String host = ForumUrlRouter.isForumHost(identity.host) ? identity.host : "forum.harleytg.com";
+            String host = ForumUrlRouter.isForumHost(identity.host) ? identity.host : "harleysclan.freeflarum.com";
             String route = path == null || path.trim().isEmpty() ? "/" : path.trim();
             if (!route.startsWith("/")) route = "/" + route;
             Intent intent = new Intent(this, HcfForum.MainActivity.class);
@@ -5852,8 +5852,8 @@ final class HcfSubActivities {
             hostHealthStatus.setPadding(dp(14), dp(11), dp(14), dp(11));
             card.addView(hostHealthStatus);
             card.addView(target(actionButton("Test Both Forum Hosts", v -> testHostHealth()), "test_host_health"));
-            card.addView(target(actionButton("Use Primary Forum", v -> selectForumHost("forum.harleytg.com", true)), "use_primary_host"));
-            card.addView(target(actionButton("Use Backup Forum", v -> selectForumHost("harleysclan.freeflarum.com", false)), "use_backup_host"));
+            card.addView(target(actionButton("Use Primary Forum", v -> selectForumHost("harleysclan.freeflarum.com", true)), "use_primary_host"));
+            card.addView(target(actionButton("Use Backup Forum", v -> selectForumHost("forum.harleytg.com", false)), "use_backup_host"));
             card.addView(text(
                     "Host tests use HTTPS only and record the last reachability result and round-trip latency locally. Manual selection changes the preferred host without disabling automatic failover.",
                     10, getColor(R.color.hcf_muted)));
@@ -5861,17 +5861,17 @@ final class HcfSubActivities {
         }
 
         private String hostHealthSummary() {
-            String active = prefs.getString("active_host", "forum.harleytg.com");
-            if (!ForumUrlRouter.isForumHost(active)) active = "forum.harleytg.com";
+            String active = prefs.getString("active_host", "harleysclan.freeflarum.com");
+            if (!ForumUrlRouter.isForumHost(active)) active = "harleysclan.freeflarum.com";
             String primary = hostHealthLine("Primary", "host_health_primary");
             String backup = hostHealthLine("Backup", "host_health_backup");
             long lastSuccess = prefs.getLong("host_health_last_success_at", 0L);
             String lastSuccessHost = prefs.getString("host_health_last_success_host", "");
             String success = lastSuccess <= 0L
                     ? "Last successful probe: Not tested yet"
-                    : "Last successful probe: " + ("harleysclan.freeflarum.com".equals(lastSuccessHost) ? "Backup" : "Primary")
+                    : "Last successful probe: " + ("forum.harleytg.com".equals(lastSuccessHost) ? "Backup" : "Primary")
                             + " • " + ageLabel(lastSuccess);
-            return "Currently using: " + ("forum.harleytg.com".equals(active) ? "Primary" : "Backup") + " • " + active
+            return "Currently using: " + ("harleysclan.freeflarum.com".equals(active) ? "Primary" : "Backup") + " • " + active
                     + "\n" + primary + "\n" + backup + "\n" + success;
         }
 
@@ -5893,8 +5893,8 @@ final class HcfSubActivities {
                 hostHealthStatus.setTextColor(getColor(R.color.hcf_cyan));
             }
             new Thread(() -> {
-                HostHealthResult primary = probeHost("forum.harleytg.com");
-                HostHealthResult backup = probeHost("harleysclan.freeflarum.com");
+                HostHealthResult primary = probeHost("harleysclan.freeflarum.com");
+                HostHealthResult backup = probeHost("forum.harleytg.com");
                 long now = System.currentTimeMillis();
                 SharedPreferences.Editor editor = prefs.edit()
                         .putBoolean("host_health_primary_ok", primary.healthy)
@@ -5905,11 +5905,11 @@ final class HcfSubActivities {
                         .putLong("host_health_backup_latency_ms", backup.latencyMs)
                         .putInt("host_health_backup_http_status", backup.httpStatus)
                         .putLong("host_health_backup_checked_at", now);
-                String active = prefs.getString("active_host", "forum.harleytg.com");
-                if ("forum.harleytg.com".equals(active) && primary.healthy) {
+                String active = prefs.getString("active_host", "harleysclan.freeflarum.com");
+                if ("harleysclan.freeflarum.com".equals(active) && primary.healthy) {
                     editor.putLong("host_health_last_success_at", now)
                             .putString("host_health_last_success_host", primary.host);
-                } else if ("harleysclan.freeflarum.com".equals(active) && backup.healthy) {
+                } else if ("forum.harleytg.com".equals(active) && backup.healthy) {
                     editor.putLong("host_health_last_success_at", now)
                             .putString("host_health_last_success_host", backup.host);
                 } else if (primary.healthy) {
@@ -6007,7 +6007,7 @@ final class HcfSubActivities {
             external.setOnCheckedChangeListener((button, checked) -> prefs.edit().putBoolean("external_links", checked).apply());
             card.addView(external);
             card.addView(target(actionButton("Retry Primary Forum on Next Open", v -> {
-                prefs.edit().remove("fallback_until").putString("active_host", "forum.harleytg.com").apply();
+                prefs.edit().remove("fallback_until").putString("active_host", "harleysclan.freeflarum.com").apply();
                 refreshStatusLabels();
                 Toast.makeText(this, "Primary forum restored as preferred server.", Toast.LENGTH_SHORT).show();
             }), "retry_primary"));
@@ -6310,8 +6310,8 @@ final class HcfSubActivities {
         }
 
         private void showRecoveryDiagnostics() {
-            String active = prefs.getString("active_host", "forum.harleytg.com");
-            String host = ForumUrlRouter.isForumHost(active) ? active : "forum.harleytg.com";
+            String active = prefs.getString("active_host", "harleysclan.freeflarum.com");
+            String host = ForumUrlRouter.isForumHost(active) ? active : "harleysclan.freeflarum.com";
             String message = "Network: " + (isValidatedNetworkAvailable() ? "✓ Connected" : "✕ Offline")
                     + "\nCurrent server: " + host
                     + "\nAutomatic failover: " + (prefs.getBoolean("auto_failover", true) ? "✓ Enabled" : "Disabled")
@@ -6337,7 +6337,7 @@ final class HcfSubActivities {
         }
 
         private void copyDiagnosticReport() {
-            String active = prefs.getString("active_host", "forum.harleytg.com");
+            String active = prefs.getString("active_host", "harleysclan.freeflarum.com");
             String sync = prefs.getString("notification_last_sync_status", "not synced yet");
             long latency = prefs.getLong("notification_last_sync_latency_ms", 0L);
             String report = "Harley's Clan Forum • Sanitized Diagnostic Report"
@@ -6528,8 +6528,8 @@ final class HcfSubActivities {
         }
 
         private void postTestAlert(String title, String body, String route) {
-            String active = prefs.getString("active_host", "forum.harleytg.com");
-            String host = ForumUrlRouter.isForumHost(active) ? active : "forum.harleytg.com";
+            String active = prefs.getString("active_host", "harleysclan.freeflarum.com");
+            String host = ForumUrlRouter.isForumHost(active) ? active : "harleysclan.freeflarum.com";
             NotificationHelper.postTest(this, title, body, "https://" + host + (route == null ? "/notifications" : route));
             AppLogger.info(this, "notification_test", title);
         }
@@ -6645,8 +6645,8 @@ final class HcfSubActivities {
             if (telemetryStatus != null) telemetryStatus.setText(TelemetryService.status(this));
             if (updateChannelStatus != null) updateChannelStatus.setText(updateChannelLine(effectiveUpdateChannel()));
             if (serverStatus != null) {
-                String host = prefs.getString("active_host", "forum.harleytg.com");
-                boolean primary = "forum.harleytg.com".equalsIgnoreCase(host);
+                String host = prefs.getString("active_host", "harleysclan.freeflarum.com");
+                boolean primary = "harleysclan.freeflarum.com".equalsIgnoreCase(host);
                 serverStatus.setText("Current server: " + (primary ? "Primary • " : "Backup • ") + host);
                 serverStatus.setTextColor(getColor(primary ? R.color.hcf_cyan : R.color.hcf_warning));
             }
@@ -6655,8 +6655,8 @@ final class HcfSubActivities {
 
         private String cookieSummary() {
             CookieManager manager = CookieManager.getInstance();
-            int primary = countCookies(manager.getCookie("https://forum.harleytg.com/"));
-            int backup = countCookies(manager.getCookie("https://harleysclan.freeflarum.com/"));
+            int primary = countCookies(manager.getCookie("https://harleysclan.freeflarum.com/"));
+            int backup = countCookies(manager.getCookie("https://forum.harleytg.com/"));
             return "Cookie data: " + (primary + backup) + " visible • Primary " + primary + " • Backup " + backup;
         }
 
@@ -6968,7 +6968,7 @@ final class HcfSubActivities {
             Toast.makeText(this, granted ? "Notifications allowed. Sending a heads-up test…" : "Notifications not allowed.", Toast.LENGTH_SHORT).show();
             NotificationSyncScheduler.apply(this);
             refreshStatusLabels();
-            if (granted) NotificationHelper.post(this, "Harley's Clan Forum", "Heads-up notifications are enabled. This is a test alert.", ForumUrlRouter.home("forum.harleytg.com"));
+            if (granted) NotificationHelper.post(this, "Harley's Clan Forum", "Heads-up notifications are enabled. This is a test alert.", ForumUrlRouter.home("harleysclan.freeflarum.com"));
         }
 
         private boolean compact() {
@@ -7087,7 +7087,7 @@ final class HcfSubActivities {
                 }
                 addLockedRow(bodyContainer, "Forum email", str2);
                 addLockedRow(bodyContainer, "Role", this.identity.identityMetaLabel());
-                addLockedRow(bodyContainer, "Forum host", nonEmpty(this.identity.host, "forum.harleytg.com"));
+                addLockedRow(bodyContainer, "Forum host", nonEmpty(this.identity.host, "harleysclan.freeflarum.com"));
                 TextView label = label("These identity fields are synced from the signed-in forum session and cannot be edited here.", 10, R.color.hcf_muted, false);
                 label.setPadding(0, dp(4), 0, 0);
                 bodyContainer.addView(label);
@@ -7548,8 +7548,8 @@ final class HcfSubActivities {
         }
 
         private String activeHost() {
-            String string = this.prefs.getString("active_host", "forum.harleytg.com");
-            return ForumUrlRouter.isForumHost(string) ? string : "forum.harleytg.com";
+            String string = this.prefs.getString("active_host", "harleysclan.freeflarum.com");
+            return ForumUrlRouter.isForumHost(string) ? string : "harleysclan.freeflarum.com";
         }
 
         private String currentRoute() {
