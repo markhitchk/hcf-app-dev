@@ -99,8 +99,8 @@ public final class HcfNotificationEngine {
                 if (!prefs.getBoolean("background_notification_sync", true)) return;
                 String userId = prefs.getString("session_user_id", "");
                 if (userId == null || userId.trim().isEmpty() || !RuntimeState.networkAvailable(context)) return;
-                String host = prefs.getString("active_host", "forum.harleytg.com");
-                if (!ForumUrlRouter.isForumHost(host)) host = "forum.harleytg.com";
+                String host = prefs.getString("active_host", "harleysclan.freeflarum.com");
+                if (!ForumUrlRouter.isForumHost(host)) host = "harleysclan.freeflarum.com";
                 ForumNotificationSync.perform(context, host, userId.trim(), "silent-one-shot");
                 AppLogger.info(context, "instant_notification_service", "one-shot sync • silent channel hidden");
             } catch (JSONException e) {
@@ -218,8 +218,8 @@ public final class HcfNotificationEngine {
                     failures = 0;
                     nextDelay = PerformanceProfile.notificationPollInterval(this, prefs);
                 } else {
-                    String host = prefs.getString("active_host", "forum.harleytg.com");
-                    if (!ForumUrlRouter.isForumHost(host)) host = "forum.harleytg.com";
+                    String host = prefs.getString("active_host", "harleysclan.freeflarum.com");
+                    if (!ForumUrlRouter.isForumHost(host)) host = "harleysclan.freeflarum.com";
                     ForumNotificationSync.perform(this, host, userId.trim(), "adaptive");
                     failures = 0;
                     nextDelay = PerformanceProfile.notificationPollInterval(this, prefs);
@@ -321,8 +321,8 @@ public final class HcfNotificationEngine {
             if (!prefs.getBoolean("background_notification_sync", true)) return;
             String userId = prefs.getString("session_user_id", "");
             if (userId == null || userId.trim().isEmpty()) return;
-            String host = prefs.getString("active_host", "forum.harleytg.com");
-            ForumNotificationSync.perform(this, ForumUrlRouter.isForumHost(host) ? host : "forum.harleytg.com", userId.trim(), "fallback-job");
+            String host = prefs.getString("active_host", "harleysclan.freeflarum.com");
+            ForumNotificationSync.perform(this, ForumUrlRouter.isForumHost(host) ? host : "harleysclan.freeflarum.com", userId.trim(), "fallback-job");
         }
     }
 
@@ -708,7 +708,7 @@ final class NotificationHelper {
             if (context == null || i <= 0) {
                 return 0;
             }
-            String str3 = !ForumUrlRouter.isForumHost(str) ? "forum.harleytg.com" : str;
+            String str3 = !ForumUrlRouter.isForumHost(str) ? "harleysclan.freeflarum.com" : str;
             SharedPreferences sharedPreferences = context.getSharedPreferences("hcf_app", 0);
             Set<String> deliveredIds = deliveredIds(sharedPreferences.getString("delivered_notification_ids", ""));
             int max = Math.max(1, i);
@@ -751,7 +751,7 @@ final class NotificationHelper {
             return;
         }
         if (!ForumUrlRouter.isForumHost(str)) {
-            str = "forum.harleytg.com";
+            str = "harleysclan.freeflarum.com";
         }
         if (i == 1) {
             str2 = "You have a new forum notification.";
@@ -943,7 +943,7 @@ final class NotificationHelper {
             }
         } catch (Throwable unused) {
         }
-        return Uri.parse(ForumUrlRouter.home("forum.harleytg.com"));
+        return Uri.parse(ForumUrlRouter.home("harleysclan.freeflarum.com"));
     }
 
     private static String trim(String str, int i, String str2) {
