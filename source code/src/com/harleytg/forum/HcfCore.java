@@ -334,7 +334,7 @@ final class BuildInfo {
     static final String VERSION_BUILD_LINE = "v" + VERSION + " (" + VERSION_CODE + ") • " + BUILD_TAG;
     static final String VERSION_CODE_SCHEME = "dev-version-v1";
     static final String VERSION_TAG = "v1.2";
-    static final String REMOTE_DOMAIN_CONFIG = "https://raw.githubusercontent.com/harleytg-studios/hcf-app/main/configs/domains.config";
+    static final String REMOTE_DOMAIN_CONFIG = "https://raw.githubusercontent.com/markhitchk/hcf-app-dev/main/configs/domains.config";
 
     static String installedVersionName() {
         return VERSION + " (" + VERSION_CODE + ")";
@@ -1307,8 +1307,8 @@ final class TelemetryService {
         ForumIdentity.Snapshot identity = ForumIdentity.load(context);
         report.put("identityMode", identity.loggedIn ? "SIGNED_IN" : "Guest_Protocol");
         String host = identity.host == null || identity.host.trim().isEmpty()
-                ? prefs(context).getString("active_host", "forum.harleytg.com") : identity.host;
-        report.put("forumHost", ForumUrlRouter.isForumHost(host) ? host : "forum.harleytg.com");
+                ? prefs(context).getString("active_host", "harleysclan.freeflarum.com") : identity.host;
+        report.put("forumHost", ForumUrlRouter.isForumHost(host) ? host : "harleysclan.freeflarum.com");
         applyOptionalPrivacyFields(context, report, identityOverride);
         return report;
     }
